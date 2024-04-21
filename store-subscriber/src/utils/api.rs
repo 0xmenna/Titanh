@@ -1,4 +1,5 @@
 use crate::types::chain::{DefaultApi, ValidatorKeyPair};
+use codec::{Decode, Encode};
 use sp_core::{sr25519::Pair as CryptoPair, Pair};
 use substrate_api_client::{ac_primitives::DefaultRuntimeConfig, rpc::JsonrpseeClient, Api};
 use url::Url;
@@ -15,8 +16,8 @@ pub enum Error {
 pub struct SubstrateApi(DefaultApi);
 
 #[derive(Default)]
-pub struct ApiNotInitialzed;
-pub struct RpcEndpoint(Url);
+struct ApiNotInitialzed;
+struct RpcEndpoint(Url);
 
 impl RpcEndpoint {
 	pub fn as_str(&self) -> &str {
@@ -24,7 +25,7 @@ impl RpcEndpoint {
 	}
 }
 
-pub struct ApiReady {
+struct ApiReady {
 	rpc_url: RpcEndpoint,
 	keypair: ValidatorKeyPair,
 }
