@@ -8,7 +8,7 @@ homepage = "https://substrate.io"
 [workspace]
 members = [
     "node",
-    "pallets/template",
+    "pallets/capsules", "pallets/common-types",
     "runtime",
 	"store-subscriber",
 ]
