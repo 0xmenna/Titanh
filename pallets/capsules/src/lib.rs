@@ -4,20 +4,28 @@
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
 
+mod capsule;
+mod document;
+mod impl_utils;
 mod types;
 pub use types::*;
 
 // All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
 #[frame_support::pallet]
 pub mod pallet {
+	use core::fmt::Debug;
+
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use common_types::{Balance, Time};
+	use capsule::*;
+	use common_types::{Balance, CidFor, Time};
+	use document::*;
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, *},
 		Blake2_128Concat,
 	};
 	use frame_system::pallet_prelude::*;
+	use pallet_app_registrar::PermissionsApp;
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
 	// (`Call`s) in this pallet.
@@ -39,13 +47,15 @@ pub mod pallet {
 		type Timestamp: Time;
 		/// The maximum size of the encoded app specific metadata
 		#[pallet::constant]
-		type MaxEncodedAppMetadata: Get<u32>;
+		type MaxEncodedAppMetadata: Get<u32> + Debug;
 		/// The maximum number of owners per capsule/document
 		#[pallet::constant]
-		type MaxOwners: Get<u32>;
+		type MaxOwners: Get<u32> + Debug;
 		/// The maximum length of a capsule key in a container stored on-chain.
 		#[pallet::constant]
 		type StringLimit: Get<u32>;
+		/// Permissions for accounts to perform operations under some application
+		type Permissions: PermissionsApp<Self::AccountId>;
 	}
 
 	#[pallet::storage]
@@ -112,20 +122,40 @@ pub mod pallet {
 	/// information.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The value retrieved was `None` as no value was previously set.
-		NoneValue,
-		/// There was an attempt to increment the value in storage over `u32::MAX`.
-		StorageOverflow,
+		/// Account has not app specific permissions
+		AppPermissionDenied,
+		/// Invalid owners
+		BadOwners,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		// Create tokens dispatchable function
+		/// Upload capsule dispatchable function
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
-		pub fn create_tokens(origin: OriginFor<T>) -> DispatchResult {
+		pub fn upload_capsule(
+			origin: OriginFor<T>,
+			app: AppIdFor<T>,
+			owners: Option<Vec<T::AccountId>>,
+			capsule: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
+			ensure!(
+				T::Permissions::has_account_permissions(&who, app.clone()),
+				Error::<T>::AppPermissionDenied
+			);
+
+			let owners = if let Some(owners) = owners {
+				// check wheather owners are not empty
+				ensure!(owners.len() > 0, Error::<T>::BadOwners);
+				owners
+			} else {
+				// if no owners are provided then the only onwer will be the uploader
+				let mut owner = Vec::new();
+				owner.push(who.clone());
+				owner
+			};
 
 			// Return a successful `DispatchResult`
 			Ok(())
