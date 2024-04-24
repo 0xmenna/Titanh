@@ -69,6 +69,10 @@ impl<S: Get<u32>> EncodedData<S> {
 	pub fn as_slice(&self) -> &[u8] {
 		self.0.as_slice()
 	}
+
+	pub fn to_vec(&self) -> Vec<u8> {
+		self.0.to_vec()
+	}
 }
 
 /// A bounded string
