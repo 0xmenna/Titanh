@@ -4,6 +4,7 @@ use common_types::*;
 use frame_system::Config as SystemConfig;
 use scale_info::TypeInfo;
 use sp_core::{Get, RuntimeDebug};
+use sp_runtime::DispatchError;
 
 /// Capsule identifier
 pub type CapsuleIdFor<T> = HashOf<T>;
@@ -53,4 +54,35 @@ pub struct CapsuleUploadData<Cid, BlockNumber> {
 	pub followers_status: FollowersStatus,
 	/// App encoded_metadata
 	pub encoded_metadata: Vec<u8>,
+}
+
+pub struct CapsuleMetaBuilder<T: Config> {
+	app_id: AppIdFor<T>,
+	owners: Vec<T::AccountId>,
+	upload_data: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+}
+
+impl<T: Config> CapsuleMetaBuilder<T> {
+	pub fn new(
+		app_id: AppIdFor<T>,
+		owners: Vec<T::AccountId>,
+		upload_data: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+	) -> Self {
+		Self { app_id, owners, upload_data }
+	}
+
+	pub fn build(self) -> Result<CapsuleMetadataOf<T>, DispatchError> {
+		Ok(CapsuleMetadata {
+			cid: self.upload_data.cid,
+			size: self.upload_data.size,
+			ending_retention_block: self.upload_data.ending_retention_block,
+			owners: self.owners.try_into().map_err(|_| crate::Error::<T>::BadOwners)?,
+			followers_status: self.upload_data.followers_status,
+			app_data: AppData {
+				app_id: self.app_id,
+				data: EncodedData::from_slice(&self.upload_data.encoded_metadata)
+					.map_err(|_| crate::Error::<T>::BadAppData)?,
+			},
+		})
+	}
 }

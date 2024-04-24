@@ -5,8 +5,9 @@
 pub use pallet::*;
 
 mod capsule;
-mod document;
+mod container;
 mod impl_utils;
+mod impls;
 mod types;
 pub use types::*;
 
@@ -17,11 +18,11 @@ pub mod pallet {
 
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use capsule::*;
-	use common_types::{Balance, CidFor, Time};
-	use document::*;
+	use capsule::{CapsuleIdFor, *};
+	use common_types::{Balance, CidFor, ContentSize, Time};
+	use container::*;
 	use frame_support::{
-		pallet_prelude::{StorageDoubleMap, *},
+		pallet_prelude::{StorageDoubleMap, ValueQuery, *},
 		Blake2_128Concat,
 	};
 	use frame_system::pallet_prelude::*;
@@ -47,21 +48,36 @@ pub mod pallet {
 		type Timestamp: Time;
 		/// The maximum size of the encoded app specific metadata
 		#[pallet::constant]
-		type MaxEncodedAppMetadata: Get<u32> + Debug;
+		type MaxEncodedAppMetadata: Get<u32> + Debug + Clone;
 		/// The maximum number of owners per capsule/document
 		#[pallet::constant]
-		type MaxOwners: Get<u32> + Debug;
+		type MaxOwners: Get<u32> + Debug + Clone;
 		/// The maximum length of a capsule key in a container stored on-chain.
 		#[pallet::constant]
-		type StringLimit: Get<u32>;
+		type StringLimit: Get<u32> + Clone;
 		/// Permissions for accounts to perform operations under some application
 		type Permissions: PermissionsApp<Self::AccountId>;
 	}
 
+	/// Capsules that wrap an IPFS CID
 	#[pallet::storage]
 	#[pallet::getter(fn capsules)]
 	pub type Capsules<T> = StorageMap<_, Twox64Concat, CapsuleIdFor<T>, CapsuleMetadataOf<T>>;
 
+	/// Capsule owners waiting for approval
+	#[pallet::storage]
+	#[pallet::getter(fn approvals)]
+	pub type OwnersApprovals<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AccountId,
+		Twox64Concat,
+		CapsuleIdFor<T>,
+		Approvals,
+		ValueQuery,
+	>;
+
+	/// Followers of capsules
 	#[pallet::storage]
 	#[pallet::getter(fn followers)]
 	pub type CapsuleFollowers<T: Config> = StorageDoubleMap<
@@ -73,42 +89,42 @@ pub mod pallet {
 		Follower,
 	>;
 
+	/// Container with different capsules identified by a key
 	#[pallet::storage]
-	#[pallet::getter(fn document_get)]
-	pub type Document<T: Config> = StorageDoubleMap<
+	#[pallet::getter(fn container_get)]
+	pub type Container<T: Config> = StorageDoubleMap<
 		_,
 		Twox64Concat,
-		DocumentIdOf<T>,
+		ContainerIdOf<T>,
 		Blake2_128Concat,
 		KeyOf<T>,
 		CapsuleIdFor<T>,
 	>;
 
+	/// Details of a container
 	#[pallet::storage]
-	#[pallet::getter(fn document_details)]
-	pub type DocumentDetails<T: Config> =
-		StorageMap<_, Twox64Concat, DocumentIdOf<T>, DocumentDetailsOf<T>>;
+	#[pallet::getter(fn container_details)]
+	pub type ContainerDetails<T: Config> =
+		StorageMap<_, Twox64Concat, ContainerIdOf<T>, ContainerDetailsOf<T>>;
 
 	/// Events that functions in this pallet can emit.
-	///
-	/// Events are a simple means of indicating to the outside world (such as dApps, chain explorers
-	/// or other users) that some notable update in the runtime has occurred. In a FRAME pallet, the
-	/// documentation for each event field and its parameters is added to a node's metadata so it
-	/// can be used by external interfaces or tools.
-	///
-	///	The `generate_deposit` macro generates a function on `Pallet` called `deposit_event` which
-	/// will convert the event type of your pallet into `RuntimeEvent` (declared in the pallet's
-	/// [`Config`] trait) and deposit it using [`frame_system::Pallet::deposit_event`].
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
-
 	pub enum Event<T: Config> {
 		/// A user has successfully set a new value.
-		SomethingStored {
-			/// The new value set.
-			something: u32,
-			/// The account who set the new value.
-			who: T::AccountId,
+		CapsuleUploaded {
+			/// Capsule identifier
+			id: CapsuleIdFor<T>,
+			/// Application identifer
+			app_id: AppIdFor<T>,
+			/// Capsule ownerhip
+
+			/// IPFS cid that points to the content
+			cid: CidFor<T>,
+			/// Size in bytes of the underline content
+			size: ContentSize,
+			/// App specific metadata
+			app_data: Vec<u8>,
 		},
 	}
 
@@ -126,6 +142,10 @@ pub mod pallet {
 		AppPermissionDenied,
 		/// Invalid owners
 		BadOwners,
+		/// Invalid App specific metadata
+		BadAppData,
+		/// Capsule with that id already exists
+		InvalidCapsuleId,
 	}
 
 	#[pallet::call]
@@ -136,7 +156,7 @@ pub mod pallet {
 		pub fn upload_capsule(
 			origin: OriginFor<T>,
 			app: AppIdFor<T>,
-			owners: Option<Vec<T::AccountId>>,
+			owner: Option<T::AccountId>,
 			capsule: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
@@ -145,20 +165,16 @@ pub mod pallet {
 				T::Permissions::has_account_permissions(&who, app.clone()),
 				Error::<T>::AppPermissionDenied
 			);
+			// If no owner is provided as input, then the signer automatically becomes the owner.
+			// Otherwise the ownership is passed to the input account
+			let ownership = owner
+				.map(|owner| Ownership::Other(owner))
+				.unwrap_or_else(|| Ownership::Signer(who));
+			// capsule id = hash(app + encoded_metadata)
+			let capsule_id =
+				Self::compute_capsule_id(app.clone(), capsule.encoded_metadata.clone());
 
-			let owners = if let Some(owners) = owners {
-				// check wheather owners are not empty
-				ensure!(owners.len() > 0, Error::<T>::BadOwners);
-				owners
-			} else {
-				// if no owners are provided then the only onwer will be the uploader
-				let mut owner = Vec::new();
-				owner.push(who.clone());
-				owner
-			};
-
-			// Return a successful `DispatchResult`
-			Ok(())
+			Self::upload_capsule_from(capsule_id, app, ownership, capsule)
 		}
 	}
 }

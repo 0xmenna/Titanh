@@ -1,7 +1,7 @@
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use common_types::*;
-use frame_system::Config as SystemConfig;
+use frame_system::{Config as SystemConfig, Pallet};
 use pallet_app_registrar::PermissionsApp;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -41,7 +41,17 @@ pub enum FollowersStatus {
 	All,
 }
 
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, TypeInfo)]
-pub struct LetsTry {
-	abc: u32,
+/// Wether a signer is the owner or wants to give ownerhip elsewhere
+#[derive(Clone)]
+pub enum Ownership<AccountId> {
+	Signer(AccountId),
+	Other(AccountId),
+}
+
+/// Owners approvals
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum Approvals {
+	#[default]
+	None,
+	Waiting,
 }

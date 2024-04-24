@@ -5,31 +5,31 @@ use frame_system::Config as SystemConfig;
 use scale_info::TypeInfo;
 use sp_core::Get;
 
-/// Details of a document (a collection of capsules)
-pub type DocumentDetailsOf<T> = DocumentMetadata<
+/// Details of a container (a collection of capsules)
+pub type ContainerDetailsOf<T> = ContainerMetadata<
 	<T as SystemConfig>::AccountId,
 	<T as Config>::MaxOwners,
 	<T as Config>::MaxEncodedAppMetadata,
 	AppIdFor<T>,
 >;
 
-/// Document identifier
-pub type DocumentIdOf<T> = HashOf<T>;
+/// Container identifier
+pub type ContainerIdOf<T> = HashOf<T>;
 
-/// key of an underlining document
+/// key in a container
 pub type KeyOf<T> = BoundedString<<T as Config>::StringLimit>;
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[scale_info(skip_type_params(MaxAccounts, S))]
-pub struct DocumentMetadata<AccountId, MaxAccounts, S, AppId>
+pub struct ContainerMetadata<AccountId, MaxAccounts, S, AppId>
 where
 	MaxAccounts: Get<u32>,
 	S: Get<u32>,
 {
-	/// The number of keys in the document
+	/// The number of keys in the container
 	pub size: u32,
-	/// The owners of the document.
-	/// Each owner of the document is also owner of the capsules associated to the keys
+	/// The owners of the container.
+	/// Each owner of the container is also owner of the capsules associated to the keys
 	pub owners: Accounts<AccountId, MaxAccounts>,
 	/// The types of followers allowed for the capsule.
 	/// Each follower will also be a follower of the underline capsules.
