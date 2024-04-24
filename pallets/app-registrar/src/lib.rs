@@ -14,8 +14,9 @@ pub use types::*;
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use frame_support::{pallet_prelude::*, Blake2_128Concat, Twox64Concat};
 	use frame_system::pallet_prelude::*;
+	use sp_runtime::AccountId32;
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
 	// (`Call`s) in this pallet.
@@ -34,6 +35,14 @@ pub mod pallet {
 		/// Identifier for the class of application.
 		type AppId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
 	}
+
+	#[pallet::storage]
+	#[pallet::getter(fn app_owner)]	
+	pub type AppOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::AppId, T::AccountId>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn app_permission)]	
+	pub type AppPermission<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AppId, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn some_example)]
@@ -81,5 +90,7 @@ pub mod pallet {
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
+		
 	}
+
 }
