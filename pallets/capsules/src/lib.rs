@@ -132,6 +132,10 @@ pub mod pallet {
 		},
 		/// Shared capsule ownership
 		CapsuleSharedOwnership { id: CapsuleIdFor<T>, who: T::AccountId },
+		/// Capsule Followers Status changed
+		CapsuleFollowersStatusChanged { capsule_id: CapsuleIdFor<T>, status: FollowersStatus },
+		/// A capsule has been followed
+		CapsuleFollowed { capsule_id: CapsuleIdFor<T>, follower: T::AccountId },
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -162,6 +166,10 @@ pub mod pallet {
 		AlreadyOwner,
 		/// Account already waiting for approval
 		AccountAlreadyInWaitingApprovals,
+		/// Invalid followers status
+		BadFollowersStatus,
+		/// An account is already a follower
+		ALreadyFollower,
 	}
 
 	#[pallet::call]
@@ -246,6 +254,58 @@ pub mod pallet {
 			Self::deposit_event(Event::<T>::CapsuleSharedOwnership { id: capsule_id, who });
 
 			Ok(())
+		}
+
+		/// Set Follower status of a capsule
+		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn set_capsule_followers_status(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+			followers_status: FollowersStatus,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
+			capsule.followers_status = followers_status.clone();
+
+			// Emit event
+			Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
+				capsule_id,
+				status: followers_status,
+			});
+
+			Ok(())
+		}
+
+		/// Follow a capsule
+		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn follow_capsule(origin: OriginFor<T>, capsule_id: CapsuleIdFor<T>) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+
+			if let Some(capsule) = Capsules::<T>::get(&capsule_id) {
+				// check the followers status correspondence
+				ensure!(
+					capsule.followers_status == FollowersStatus::Basic
+						|| capsule.followers_status == FollowersStatus::All,
+					Error::<T>::BadFollowersStatus
+				);
+				// check that `who` is not already a follower
+				ensure!(
+					CapsuleFollowers::<T>::get(&who, &capsule_id).is_none(),
+					Error::<T>::ALreadyFollower
+				);
+				CapsuleFollowers::<T>::insert(&who, &capsule_id, Follower::Basic);
+
+				// Emit event
+				Self::deposit_event(Event::<T>::CapsuleFollowed { capsule_id, follower: who });
+
+				Ok(())
+			} else {
+				Err(Error::<T>::InvalidCapsuleId.into())
+			}
 		}
 	}
 }
