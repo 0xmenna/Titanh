@@ -15,8 +15,8 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use frame_support::{pallet_prelude::*, Blake2_128Concat, Twox64Concat};
-	use frame_system::pallet_prelude::*;
-	use sp_runtime::AccountId32;
+	use frame_system::{pallet, pallet_prelude::*};
+	use sp_runtime::{traits::{AtLeast32BitUnsigned, Saturating}, FixedPointOperand};
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
 	// (`Call`s) in this pallet.
@@ -33,12 +33,16 @@ pub mod pallet {
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Identifier for the class of application.
-		type AppId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen;
+		type AppId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + FixedPointOperand + Default+ AtLeast32BitUnsigned;
 	}
 
 	#[pallet::storage]
 	#[pallet::getter(fn app_owner)]	
 	pub type AppOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::AppId, T::AccountId>;
+
+	#[pallet::storage]
+	#[pallet::getter(fn app_id)]	
+	pub type Counter<T: Config>= StorageValue<_,T::AppId, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn app_permission)]	
@@ -83,10 +87,16 @@ pub mod pallet {
 		/// Upload capsule dispatchable function
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
-		pub fn some_extrinsic(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create_app(origin: OriginFor<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let _who = ensure_signed(origin)?;
-
+			// Increment the counter value by one
+			let mut index = Counter::<T>::get(); 
+			index.saturating_inc();
+			// Update the storage AppOwners
+			AppOwner::<T>::insert(index, _who.clone());
+			AppPermission::<T>::insert(index, _who.clone(), true);
+			
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
