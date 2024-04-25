@@ -1,7 +1,7 @@
 use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use common_types::*;
-use frame_system::{Config as SystemConfig, Pallet};
+use frame_system::Config as SystemConfig;
 use pallet_app_registrar::PermissionsApp;
 use scale_info::TypeInfo;
 use sp_core::Get;
@@ -50,8 +50,9 @@ pub enum Ownership<AccountId> {
 
 /// Owners approvals
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum Approvals {
+pub enum Approval {
 	#[default]
 	None,
-	Waiting,
+	Capsule,
+	Container,
 }

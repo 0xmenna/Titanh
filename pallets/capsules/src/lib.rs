@@ -19,7 +19,7 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use capsule::{CapsuleIdFor, *};
-	use common_types::{Balance, CidFor, ContentSize, Time};
+	use common_types::{Balance, CidFor, ContentSize, HashOf, Time};
 	use container::*;
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, ValueQuery, *},
@@ -67,13 +67,13 @@ pub mod pallet {
 	/// Capsule owners waiting for approval
 	#[pallet::storage]
 	#[pallet::getter(fn approvals)]
-	pub type OwnersApprovals<T: Config> = StorageDoubleMap<
+	pub type OwnersWaitingApprovals<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AccountId,
 		Twox64Concat,
-		CapsuleIdFor<T>,
-		Approvals,
+		HashOf<T>,
+		Approval,
 		ValueQuery,
 	>;
 
@@ -117,8 +117,6 @@ pub mod pallet {
 			id: CapsuleIdFor<T>,
 			/// Application identifer
 			app_id: AppIdFor<T>,
-			/// Capsule ownerhip
-
 			/// IPFS cid that points to the content
 			cid: CidFor<T>,
 			/// Size in bytes of the underline content
@@ -126,6 +124,14 @@ pub mod pallet {
 			/// App specific metadata
 			app_data: Vec<u8>,
 		},
+		/// A waiting approval has been approved
+		CapsuleOwnershipApproved {
+			// Capsule identifier
+			id: CapsuleIdFor<T>,
+			who: T::AccountId,
+		},
+		/// Shared capsule ownership
+		CapsuleSharedOwnership { id: CapsuleIdFor<T>, who: T::AccountId },
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -141,11 +147,21 @@ pub mod pallet {
 		/// Account has not app specific permissions
 		AppPermissionDenied,
 		/// Invalid owners
-		BadOwners,
+		TooManyOwners,
 		/// Invalid App specific metadata
 		BadAppData,
 		/// Capsule with that id already exists
+		CapsuleIdAlreadyExists,
+		/// Account has no waiting approvals
+		NoWaitingApproval,
+		/// Capsule does not exits
 		InvalidCapsuleId,
+		/// Account is not an owner
+		BadOriginForOwnership,
+		/// The account is already an owner
+		AlreadyOwner,
+		/// Account already waiting for approval
+		AccountAlreadyInWaitingApprovals,
 	}
 
 	#[pallet::call]
@@ -175,6 +191,61 @@ pub mod pallet {
 				Self::compute_capsule_id(app.clone(), capsule.encoded_metadata.clone());
 
 			Self::upload_capsule_from(capsule_id, app, ownership, capsule)
+		}
+
+		/// Approves an ownership request for a given capsule
+		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn approve_capsule_ownership(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+
+			let capsule = Capsules::<T>::get(&capsule_id);
+			if let Some(mut capsule) = capsule {
+				// Try to approve a capsule waiting approval, if any
+				Self::try_approve_capsule_ownership(&who, &capsule_id)?;
+				// Try to add the owner to capsule owners, if it does not exceeds the vector bounds
+				Self::try_add_owner(&who, &mut capsule.owners)?;
+
+				// Emit Event
+				Self::deposit_event(Event::<T>::CapsuleOwnershipApproved { id: capsule_id, who });
+
+				Ok(())
+			} else {
+				Err(Error::<T>::InvalidCapsuleId.into())
+			}
+		}
+
+		/// Share the ownership of a capsule with another account
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn share_capsule_ownership(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+			other_owner: T::AccountId,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+
+			// Obtain the capsule from the owner `who`
+			// Dispatches an error if `who` is not an owner of the capsule
+			let capsule = Self::capsule_from_owner(&who, &capsule_id)?;
+			// check that `other_owner` is not already an owner
+			ensure!(capsule.owners.binary_search(&other_owner).is_err(), Error::<T>::AlreadyOwner);
+			// Add a waiting approval, only if there is not already the same one
+			ensure!(
+				OwnersWaitingApprovals::<T>::get(&other_owner, &capsule_id) == Approval::None,
+				Error::<T>::AccountAlreadyInWaitingApprovals
+			);
+			OwnersWaitingApprovals::<T>::insert(&who, &capsule_id, Approval::None);
+
+			// Emit Event
+			Self::deposit_event(Event::<T>::CapsuleSharedOwnership { id: capsule_id, who });
+
+			Ok(())
 		}
 	}
 }

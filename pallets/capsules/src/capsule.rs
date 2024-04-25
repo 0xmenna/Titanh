@@ -76,7 +76,7 @@ impl<T: Config> CapsuleMetaBuilder<T> {
 			cid: self.upload_data.cid,
 			size: self.upload_data.size,
 			ending_retention_block: self.upload_data.ending_retention_block,
-			owners: self.owners.try_into().map_err(|_| crate::Error::<T>::BadOwners)?,
+			owners: self.owners.try_into().map_err(|_| crate::Error::<T>::TooManyOwners)?,
 			followers_status: self.upload_data.followers_status,
 			app_data: AppData {
 				app_id: self.app_id,

@@ -1,6 +1,6 @@
 use crate::{
 	capsule::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData},
-	AppIdFor, Approvals, Capsules, Config, Error, Event, OwnersApprovals, Ownership, Pallet,
+	AppIdFor, Approval, Capsules, Config, Error, Event, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use common_types::{BlockNumberFor, CidFor};
 use frame_support::pallet_prelude::*;
@@ -14,7 +14,7 @@ impl<T: Config> Pallet<T> {
 		ownership: Ownership<T::AccountId>,
 		metadata: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
 	) -> DispatchResult {
-		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::InvalidCapsuleId);
+		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::CapsuleIdAlreadyExists);
 
 		let owners = match ownership {
 			Ownership::Signer(who) => {
@@ -24,7 +24,7 @@ impl<T: Config> Pallet<T> {
 			Ownership::Other(who) => {
 				// Adding a waiting approval for the capsule
 				// The owner must accept it before becoming an owner
-				OwnersApprovals::<T>::insert(who, capsule_id.clone(), Approvals::Waiting);
+				OwnersWaitingApprovals::<T>::insert(who, capsule_id.clone(), Approval::Capsule);
 				Vec::new()
 			},
 		};
