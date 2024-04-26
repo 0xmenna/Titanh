@@ -1,16 +1,25 @@
 use crate::{
 	capsule::{CapsuleIdFor, CapsuleMetadataOf},
 	container::ContainerIdOf,
-	AppIdFor, Approval, Capsules, Config, Error, OwnersWaitingApprovals, Pallet,
+	AppIdFor, Approval, Capsules, Config, Error, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use codec::Encode;
-use common_types::{Accounts, CidFor};
+use common_types::Accounts;
 use frame_support::ensure;
 use sp_core::{Get, Hasher};
 use sp_runtime::{DispatchError, DispatchResult};
 
 impl<T: Config> Pallet<T> {
-	pub(super) fn compute_capsule_id(app_id: AppIdFor<T>, metadata: Vec<u8>) -> CapsuleIdFor<T> {
+	pub fn ownership_from(
+		who: T::AccountId,
+		maybe_account: Option<T::AccountId>,
+	) -> Ownership<T::AccountId> {
+		maybe_account
+			.map(|owner| Ownership::Other(owner))
+			.unwrap_or_else(|| Ownership::Signer(who))
+	}
+
+	pub fn compute_id(app_id: AppIdFor<T>, metadata: Vec<u8>) -> CapsuleIdFor<T> {
 		let mut data = Vec::new();
 		data.push(app_id.encode());
 		data.push(metadata);

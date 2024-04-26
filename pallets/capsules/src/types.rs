@@ -28,6 +28,7 @@ pub struct AppData<AppId, S: Get<u32>> {
 pub enum Follower {
 	#[default]
 	Basic,
+	WaitingApprovalForPrivileged,
 	Privileged,
 }
 

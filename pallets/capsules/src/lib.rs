@@ -7,7 +7,6 @@ pub use pallet::*;
 mod capsule;
 mod container;
 mod impl_utils;
-mod impls;
 mod types;
 pub use types::*;
 
@@ -128,6 +127,7 @@ pub mod pallet {
 		CapsuleOwnershipApproved {
 			// Capsule identifier
 			id: CapsuleIdFor<T>,
+			// Approval account
 			who: T::AccountId,
 		},
 		/// Shared capsule ownership
@@ -136,16 +136,20 @@ pub mod pallet {
 		CapsuleFollowersStatusChanged { capsule_id: CapsuleIdFor<T>, status: FollowersStatus },
 		/// A capsule has been followed
 		CapsuleFollowed { capsule_id: CapsuleIdFor<T>, follower: T::AccountId },
+		/// The content pointed by a capsule has changed
+		CapsuleContentChanged { capsule_id: CapsuleIdFor<T>, cid: CidFor<T>, size: ContentSize },
+		/// The endind retention block has been extended
+		CapsuleEndingRetentionBlockExtended {
+			capsule_id: CapsuleIdFor<T>,
+			at_block: BlockNumberFor<T>,
+		},
+		/// A priviledged follower is added to a waiting for approval state
+		PrivilegedFollowerWaitingToApprove { capsule_id: CapsuleIdFor<T>, who: T::AccountId },
+		/// A waiting approval has been approved
+		PrivilegedFollowApproved { capsule_id: CapsuleIdFor<T>, who: T::AccountId },
 	}
 
 	/// Errors that can be returned by this pallet.
-	///
-	/// Errors tell users that something went wrong so it's important that their naming is
-	/// informative. Similar to events, error documentation is added to a node's metadata so it's
-	/// equally important that they have helpful documentation associated with them.
-	///
-	/// This type of runtime error can be up to 4 bytes in size should you want to return additional
-	/// information.
 	#[pallet::error]
 	pub enum Error<T> {
 		/// Account has not app specific permissions
@@ -169,36 +173,39 @@ pub mod pallet {
 		/// Invalid followers status
 		BadFollowersStatus,
 		/// An account is already a follower
-		ALreadyFollower,
+		AlreadyFollower,
+		/// Invalid block number for a retention extension
+		BadBlockNumber,
 	}
 
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
-		/// Upload capsule dispatchable function
+		/*
+		Capsule related dispatchables
+		*/
+
+		/// Upload capsule logic
+		///
+		/// Vulnerability NOTE:
+		/// In the current implementation an account could update a capsule by specifying the `size` parameter,
+		/// in the capsule metadata, that is not consistent within the actual content stored on IPFS.
+		/// The reason of such parameter to exist is to allow, in future implementations, a renting mechanism.
+		/// In fact, a fee can be charged to the uploader, based on the size and rentention time.
+		///
+		/// To solve such vulnerability, pinning nodes should verify the validity of the content size, and sign a message that can be validated on chain.
+		/// This can be implemented in future versions.
+		///
 		#[pallet::call_index(0)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn upload_capsule(
 			origin: OriginFor<T>,
 			app: AppIdFor<T>,
-			owner: Option<T::AccountId>,
+			other_owner: Option<T::AccountId>,
 			capsule: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-			ensure!(
-				T::Permissions::has_account_permissions(&who, app.clone()),
-				Error::<T>::AppPermissionDenied
-			);
-			// If no owner is provided as input, then the signer automatically becomes the owner.
-			// Otherwise the ownership is passed to the input account
-			let ownership = owner
-				.map(|owner| Ownership::Other(owner))
-				.unwrap_or_else(|| Ownership::Signer(who));
-			// capsule id = hash(app + encoded_metadata)
-			let capsule_id =
-				Self::compute_capsule_id(app.clone(), capsule.encoded_metadata.clone());
-
-			Self::upload_capsule_from(capsule_id, app, ownership, capsule)
+			Self::upload_capsule_from(who, app, other_owner, capsule)
 		}
 
 		/// Approves an ownership request for a given capsule
@@ -210,21 +217,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-
-			let capsule = Capsules::<T>::get(&capsule_id);
-			if let Some(mut capsule) = capsule {
-				// Try to approve a capsule waiting approval, if any
-				Self::try_approve_capsule_ownership(&who, &capsule_id)?;
-				// Try to add the owner to capsule owners, if it does not exceeds the vector bounds
-				Self::try_add_owner(&who, &mut capsule.owners)?;
-
-				// Emit Event
-				Self::deposit_event(Event::<T>::CapsuleOwnershipApproved { id: capsule_id, who });
-
-				Ok(())
-			} else {
-				Err(Error::<T>::InvalidCapsuleId.into())
-			}
+			Self::approve_capsule_ownership_from(who, capsule_id)
 		}
 
 		/// Share the ownership of a capsule with another account
@@ -237,23 +230,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-
-			// Obtain the capsule from the owner `who`
-			// Dispatches an error if `who` is not an owner of the capsule
-			let capsule = Self::capsule_from_owner(&who, &capsule_id)?;
-			// check that `other_owner` is not already an owner
-			ensure!(capsule.owners.binary_search(&other_owner).is_err(), Error::<T>::AlreadyOwner);
-			// Add a waiting approval, only if there is not already the same one
-			ensure!(
-				OwnersWaitingApprovals::<T>::get(&other_owner, &capsule_id) == Approval::None,
-				Error::<T>::AccountAlreadyInWaitingApprovals
-			);
-			OwnersWaitingApprovals::<T>::insert(&who, &capsule_id, Approval::None);
-
-			// Emit Event
-			Self::deposit_event(Event::<T>::CapsuleSharedOwnership { id: capsule_id, who });
-
-			Ok(())
+			Self::share_capsule_ownership_from(who, capsule_id, other_owner)
 		}
 
 		/// Set Follower status of a capsule
@@ -266,16 +243,7 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-			let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
-			capsule.followers_status = followers_status.clone();
-
-			// Emit event
-			Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
-				capsule_id,
-				status: followers_status,
-			});
-
-			Ok(())
+			Self::set_capsule_followers_status_from(who, capsule_id, followers_status)
 		}
 
 		/// Follow a capsule
@@ -284,28 +252,65 @@ pub mod pallet {
 		pub fn follow_capsule(origin: OriginFor<T>, capsule_id: CapsuleIdFor<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-
-			if let Some(capsule) = Capsules::<T>::get(&capsule_id) {
-				// check the followers status correspondence
-				ensure!(
-					capsule.followers_status == FollowersStatus::Basic
-						|| capsule.followers_status == FollowersStatus::All,
-					Error::<T>::BadFollowersStatus
-				);
-				// check that `who` is not already a follower
-				ensure!(
-					CapsuleFollowers::<T>::get(&who, &capsule_id).is_none(),
-					Error::<T>::ALreadyFollower
-				);
-				CapsuleFollowers::<T>::insert(&who, &capsule_id, Follower::Basic);
-
-				// Emit event
-				Self::deposit_event(Event::<T>::CapsuleFollowed { capsule_id, follower: who });
-
-				Ok(())
-			} else {
-				Err(Error::<T>::InvalidCapsuleId.into())
-			}
+			Self::follow_capsule_from(who, capsule_id)
 		}
+
+		/// Updates the content of a capsule.
+		/// By means of changing the IPFS CID and size (see vulnerability in the upload extrinisc).
+		#[pallet::call_index(5)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn update_capsule_content(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+			cid: CidFor<T>,
+			size: ContentSize,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::update_capsule_content_from(who, capsule_id, cid, size)
+		}
+
+		/// Extends the ending retention block of a capsule
+		#[pallet::call_index(6)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn extend_ending_retention_block(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+			at_block: BlockNumberFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::extend_ending_retention_block_from(who, capsule_id, at_block)
+		}
+
+		/// Adds priviledged followers, by adding it to a waiting approval state
+		/// In order to become a priviledged follower the target account must agree
+		#[pallet::call_index(7)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn add_priviledged_follower(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+			follower: T::AccountId,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::add_priviledged_follower_from(who, capsule_id, follower)
+		}
+
+		/// Approves a privileged follower request
+		#[pallet::call_index(8)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn aprove_privileged_follow(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::aprove_privileged_follow_from(who, capsule_id)
+		}
+
+		/*
+		Container related dispatchables
+		*/
 	}
 }
