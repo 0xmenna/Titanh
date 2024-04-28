@@ -41,8 +41,12 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
-		/// Type in which we record balances
-		type Balance: Balance;
+		/// A static prefix to compute a capsule id
+		#[pallet::constant]
+		type CapsuleIdPrefix: Get<&'static [u8]>;
+		/// A static prefix to compute a container id
+		#[pallet::constant]
+		type ContainerIdPrefix: Get<&'static [u8]>;
 		/// Type for managing time
 		type Timestamp: Time;
 		/// The maximum size of the encoded app specific metadata
@@ -56,6 +60,11 @@ pub mod pallet {
 		type StringLimit: Get<u32> + Clone;
 		/// Permissions for accounts to perform operations under some application
 		type Permissions: PermissionsApp<Self::AccountId>;
+		/// Max number of items to destroy per `destroy_capsule_ownership_approvals`, `destroy_followers`, `destroy_container_ownership_approvals` and `destroy_container_keys` call.
+		///
+		/// Must be configured to result in a weight that makes each call fit in a block.
+		#[pallet::constant]
+		type RemoveItemsLimit: Get<u32>;
 	}
 
 	/// Capsules that wrap an IPFS CID
@@ -66,15 +75,8 @@ pub mod pallet {
 	/// Capsule owners waiting for approval
 	#[pallet::storage]
 	#[pallet::getter(fn approvals)]
-	pub type OwnersWaitingApprovals<T: Config> = StorageDoubleMap<
-		_,
-		Blake2_128Concat,
-		T::AccountId,
-		Twox64Concat,
-		HashOf<T>,
-		Approval,
-		ValueQuery,
-	>;
+	pub type OwnersWaitingApprovals<T: Config> =
+		StorageDoubleMap<_, Twox64Concat, HashOf<T>, Blake2_128Concat, T::AccountId, Approval>;
 
 	/// Followers of capsules
 	#[pallet::storage]
@@ -176,6 +178,10 @@ pub mod pallet {
 		AlreadyFollower,
 		/// Invalid block number for a retention extension
 		BadBlockNumber,
+		// Capsule is destroying
+		DestroyingCapsule,
+		// Capsule is live and cannot destroy associated data
+		LiveCapsule,
 	}
 
 	#[pallet::call]

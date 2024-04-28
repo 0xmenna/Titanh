@@ -11,9 +11,6 @@ use sp_std::prelude::*;
 pub type AppIdFor<T> =
 	<<T as Config>::Permissions as PermissionsApp<<T as SystemConfig>::AccountId>>::AppId;
 
-/// Account balance
-pub type BalanceOf<T> = <T as Config>::Balance;
-
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[scale_info(skip_type_params(S))]
 pub struct AppData<AppId, S: Get<u32>> {
@@ -50,10 +47,13 @@ pub enum Ownership<AccountId> {
 }
 
 /// Owners approvals
-#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum Approval {
-	#[default]
-	None,
+	Capsule,
+	Container,
+}
+
+pub enum IdComputation {
 	Capsule,
 	Container,
 }

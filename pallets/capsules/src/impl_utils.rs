@@ -1,7 +1,8 @@
 use crate::{
-	capsule::{CapsuleIdFor, CapsuleMetadataOf},
+	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status},
 	container::ContainerIdOf,
-	AppIdFor, Approval, Capsules, Config, Error, OwnersWaitingApprovals, Ownership, Pallet,
+	AppIdFor, Approval, Capsules, Config, Error, IdComputation, OwnersWaitingApprovals, Ownership,
+	Pallet,
 };
 use codec::Encode;
 use common_types::Accounts;
@@ -19,12 +20,25 @@ impl<T: Config> Pallet<T> {
 			.unwrap_or_else(|| Ownership::Signer(who))
 	}
 
-	pub fn compute_id(app_id: AppIdFor<T>, metadata: Vec<u8>) -> CapsuleIdFor<T> {
+	/// Computes the capsule/container identifier
+	// To avoid id duplications for capsules and containers with the same `metadata` and `app_id`, we add static prefixes.
+	// Given a capsule/container, every "app" can have its own new capsule/container, as long as the metadata is different.
+	// Different apps can have the same metadata for their capsules/containers.
+	pub fn compute_id(
+		app_id: AppIdFor<T>,
+		metadata: Vec<u8>,
+		what: IdComputation,
+	) -> CapsuleIdFor<T> {
 		let mut data = Vec::new();
-		data.push(app_id.encode());
-		data.push(metadata);
+		match what {
+			IdComputation::Capsule => data.extend_from_slice(T::CapsuleIdPrefix::get()),
+			IdComputation::Container => data.extend_from_slice(T::ContainerIdPrefix::get()),
+		}
 
-		T::Hashing::hash(&data.concat()[..])
+		data.extend_from_slice(&app_id.encode());
+		data.extend_from_slice(&metadata);
+
+		T::Hashing::hash(&data[..])
 	}
 
 	pub fn capsule_exists(capsule_id: &CapsuleIdFor<T>) -> bool {
@@ -35,24 +49,24 @@ impl<T: Config> Pallet<T> {
 		who: &T::AccountId,
 		capsule_id: &CapsuleIdFor<T>,
 	) -> DispatchResult {
-		if OwnersWaitingApprovals::<T>::get(who, capsule_id) == Approval::Capsule {
-			OwnersWaitingApprovals::<T>::insert(who, capsule_id, Approval::None);
-			Ok(())
-		} else {
-			Err(Error::<T>::NoWaitingApproval.into())
-		}
+		OwnersWaitingApprovals::<T>::get(capsule_id, who)
+			.filter(|approval| approval == &Approval::Capsule)
+			.ok_or(Error::<T>::NoWaitingApproval)?;
+
+		OwnersWaitingApprovals::<T>::remove(capsule_id, who);
+		Ok(())
 	}
 
 	pub fn try_approve_container_ownership(
 		who: &T::AccountId,
 		container_id: &ContainerIdOf<T>,
 	) -> DispatchResult {
-		if OwnersWaitingApprovals::<T>::get(who, container_id) == Approval::Container {
-			OwnersWaitingApprovals::<T>::insert(who, container_id, Approval::None);
-			Ok(())
-		} else {
-			Err(Error::<T>::NoWaitingApproval.into())
-		}
+		OwnersWaitingApprovals::<T>::get(container_id, who)
+			.filter(|approval| approval == &Approval::Container)
+			.ok_or(Error::<T>::NoWaitingApproval)?;
+
+		OwnersWaitingApprovals::<T>::remove(container_id, who);
+		Ok(())
 	}
 
 	pub fn try_add_owner<S: Get<u32>>(
@@ -64,6 +78,11 @@ impl<T: Config> Pallet<T> {
 		let idx = owners.binary_search(&who).expect_err("The account cannot be an owner");
 		owners.try_insert(idx, who.clone()).map_err(|_| Error::<T>::TooManyOwners)?;
 
+		Ok(())
+	}
+
+	pub fn ensure_capsule_liveness(capsule: &CapsuleMetadataOf<T>) -> DispatchResult {
+		ensure!(capsule.status != Status::Destroying, Error::<T>::DestroyingCapsule);
 		Ok(())
 	}
 
