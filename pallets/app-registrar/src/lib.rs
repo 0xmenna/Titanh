@@ -14,9 +14,15 @@ pub use types::*;
 pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
-	use frame_support::{pallet_prelude::*, Blake2_128Concat, Twox64Concat};
+	use frame_support::{
+		pallet_prelude::{ValueQuery, *},
+		Blake2_128Concat, Twox64Concat,
+	};
 	use frame_system::{pallet, pallet_prelude::*};
-	use sp_runtime::{traits::{AtLeast32BitUnsigned, Saturating}, FixedPointOperand};
+	use sp_runtime::{
+		traits::{AtLeast32BitUnsigned, Saturating},
+		FixedPointOperand,
+	};
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
 	// (`Call`s) in this pallet.
@@ -33,24 +39,36 @@ pub mod pallet {
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		/// Identifier for the class of application.
-		type AppId: Member + Parameter + Clone + MaybeSerializeDeserialize + MaxEncodedLen + FixedPointOperand + Default+ AtLeast32BitUnsigned;
+		type AppId: Member
+			+ Parameter
+			+ Clone
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ FixedPointOperand
+			+ Default
+			+ AtLeast32BitUnsigned;
 	}
 
 	#[pallet::storage]
-	#[pallet::getter(fn app_owner)]	
-	pub type AppOwner<T: Config> = StorageMap<_, Blake2_128Concat, T::AppId, T::AccountId>;
+	#[pallet::getter(fn app_id)]
+	pub type CurrentAppId<T: Config> = StorageValue<_, T::AppId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn app_id)]	
-	pub type Counter<T: Config>= StorageValue<_,T::AppId, ValueQuery>;
+	#[pallet::getter(fn app_permission)]
+	pub type AppPermission<T: Config> = StorageDoubleMap<
+		_,
+		Blake2_128Concat,
+		T::AppId,
+		Blake2_128Concat,
+		T::AccountId,
+		bool,
+		ValueQuery,
+	>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn app_permission)]	
-	pub type AppPermission<T: Config> = StorageDoubleMap<_, Blake2_128Concat, T::AppId, Blake2_128Concat, T::AccountId, bool, ValueQuery>;
-
-	#[pallet::storage]
-	#[pallet::getter(fn some_example)]
-	pub type SomeStorageExample<T> = StorageMap<_, Twox64Concat, u32, u32>;
+	#[pallet::getter(fn app_metadata)]
+	pub type AppMetadata<T: Config> =
+		StorageMap<_, Blake2_128Concat, T::AppId, AppDetails<T::AccountId>>;
 
 	/// Events that functions in this pallet can emit.
 	#[pallet::event]
@@ -77,9 +95,9 @@ pub mod pallet {
 	#[pallet::error]
 	pub enum Error<T> {
 		/// The value retrieved was `None` as no value was previously set.
-		NoneValue,
-		/// There was an attempt to increment the value in storage over `u32::MAX`.
-		StorageOverflow,
+		AppNotExist,
+		NotOwner,
+		IncorrectStatus,
 	}
 
 	#[pallet::call]
@@ -89,18 +107,43 @@ pub mod pallet {
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn create_app(origin: OriginFor<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
-			let _who = ensure_signed(origin)?;
+			let who = ensure_signed(origin)?;
 			// Increment the counter value by one
-			let mut index = Counter::<T>::get(); 
+			let mut index = CurrentAppId::<T>::get();
 			index.saturating_inc();
 			// Update the storage AppOwners
-			AppOwner::<T>::insert(index, _who.clone());
-			AppPermission::<T>::insert(index, _who.clone(), true);
-			
+
+			AppMetadata::<T>::insert(
+				index,
+				AppDetails { owner: who.clone(), status: Default::default() },
+			);
+
+			AppPermission::<T>::insert(index, who.clone(), true);
+
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
-		
-	}
 
+		#[pallet::call_index(1)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn set_subscription_status(
+			origin: OriginFor<T>,
+			app_id: T::AppId,
+			subscription_status: AppSubscriptionStatus,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+
+			let mut app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
+
+			ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
+
+			ensure!(app_metadata.status != subscription_status, Error::<T>::IncorrectStatus);
+
+			app_metadata.status = subscription_status;
+
+			// Return a successful `DispatchResult`
+			Ok(())
+		}
+	}
 }
