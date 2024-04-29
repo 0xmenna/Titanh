@@ -15,13 +15,14 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use frame_support::{
+		pallet,
 		pallet_prelude::{ValueQuery, *},
 		Blake2_128Concat, Twox64Concat,
 	};
 	use frame_system::{pallet, pallet_prelude::*};
 	use sp_runtime::{
 		traits::{AtLeast32BitUnsigned, Saturating},
-		FixedPointOperand,
+		AccountId32, DispatchError, FixedPointOperand,
 	};
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
@@ -98,6 +99,7 @@ pub mod pallet {
 		AppNotExist,
 		NotOwner,
 		IncorrectStatus,
+		NotAllowed,
 	}
 
 	#[pallet::call]
@@ -143,6 +145,48 @@ pub mod pallet {
 			app_metadata.status = subscription_status;
 
 			// Return a successful `DispatchResult`
+			Ok(())
+		}
+
+		#[pallet::call_index(2)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn enable_account_permission(
+			origin: OriginFor<T>,
+			app_id: T::AppId,
+			account_to_add: T::AccountId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			let app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
+
+			ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
+
+			ensure!(
+				AppSubscriptionStatus::SelectedByOwner == app_metadata.status,
+				Error::<T>::IncorrectStatus
+			);
+
+			AppPermission::<T>::insert(app_id, account_to_add, true);
+
+			Ok(())
+		}
+
+		#[pallet::call_index(3)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn subscribe_to_app_permission(
+			origin: OriginFor<T>,
+			app_id: T::AppId,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+
+			ensure!(
+				AppSubscriptionStatus::Anyone
+					== AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?.status,
+				Error::<T>::IncorrectStatus
+			);
+
+			AppPermission::<T>::insert(app_id, who, true);
+
 			Ok(())
 		}
 	}
