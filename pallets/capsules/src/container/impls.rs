@@ -5,7 +5,7 @@ use sp_runtime::DispatchResult;
 
 use crate::{
 	container::ContainerMetadata, AppData, AppIdFor, Approval, Config, ContainerDetails, Error,
-	FollowersStatus, IdComputation, Pallet,
+	Event, FollowersStatus, IdComputation, Pallet,
 };
 
 /// Container related logic
@@ -22,34 +22,32 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AppPermissionDenied
 		);
 
-		let ownership = Self::ownership_from(who, maybe_other_owner);
-
 		let container_id =
 			Self::compute_id(app_id.clone(), app_data.clone(), IdComputation::Container);
+		ensure!(!Self::container_exists(&container_id), Error::<T>::InvalidContainerId);
 
-		ensure!(!Self::capsule_exists(&container_id), Error::<T>::InvalidContainerId);
-
-		let owners = Self::create_owners_from(ownership, &container_id, Approval::Container);
+		let ownership = Self::ownership_from(who, maybe_other_owner);
+		let owners = Self::create_owners_from(&ownership, &container_id, Approval::Container);
 
 		ContainerDetails::<T>::insert(
 			&container_id,
 			ContainerMetadata {
+				// There are no capsules attached
 				size: 0,
 				owners: owners.try_into().map_err(|_| Error::<T>::TooManyOwners)?,
-				followers_status,
+				followers_status: followers_status.clone(),
 				app_data: AppData {
-					app_id,
+					app_id: app_id.clone(),
 					data: EncodedData::from_slice(&app_data).map_err(|_| Error::<T>::BadAppData)?,
 				},
 			},
 		);
 
-		Self::deposit_event(Event::<T>::ContainerUploaded {
+		Self::deposit_event(Event::<T>::ContainerCreated {
 			container_id,
 			app_id,
-			cid: capsule_metadata.cid,
-			size: capsule_metadata.size,
-			app_data: capsule_metadata.app_data.data.to_vec(),
+			followers_status,
+			app_data,
 			ownership,
 		});
 

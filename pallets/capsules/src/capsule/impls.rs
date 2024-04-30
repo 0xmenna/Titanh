@@ -1,15 +1,12 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
 use crate::{
-	capsule::Status,
-	container::{ContainerIdOf, KeyOf},
-	AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers, CapsuleItems,
-	Capsules, Config, Container, Error, Event, Follower, FollowersStatus, IdComputation,
-	OwnersWaitingApprovals, Ownership, Pallet,
+	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
+	CapsuleItems, Capsules, Config, Container, Error, Event, Follower, FollowersStatus,
+	IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
-use sp_core::Get;
 use sp_runtime::DispatchResult;
 
 /// Capsule related logic
@@ -218,7 +215,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::CapsuleIdAlreadyExists);
 
-		let owners = Self::create_owners_from(ownership, &capsule_id, Approval::Capsule);
+		let owners = Self::create_owners_from(&ownership, &capsule_id, Approval::Capsule);
 
 		// Construct storing metadata and insert into storage
 		let capsule_metadata = CapsuleMetaBuilder::<T>::new(app_id, owners, metadata).build()?;
@@ -232,6 +229,7 @@ impl<T: Config> Pallet<T> {
 			size: capsule_metadata.size,
 			app_data: capsule_metadata.app_data.data.to_vec(),
 			ownership,
+			followers_status: capsule_metadata.followers_status,
 		});
 
 		Ok(())

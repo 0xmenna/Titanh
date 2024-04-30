@@ -1,9 +1,12 @@
 use crate::{
-	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status}, container::ContainerIdOf, AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, CapsuleItems, Capsules, Config, Container, ContainerDetails, DeletionCompletion, Error, IdComputation, OwnersWaitingApprovals, Ownership, Pallet
+	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status},
+	container::ContainerIdOf,
+	AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, Capsules, Config, ContainerDetails,
+	DeletionCompletion, Error, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use codec::Encode;
 use common_types::{Accounts, HashOf};
-use frame_support::{ensure, storage::KeyLenOf};
+use frame_support::ensure;
 use sp_core::{Get, Hasher};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 
@@ -184,12 +187,15 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn create_owners_from(ownership: Ownership<T::AccountId>, id: &HashOf<T>, approval: Approval) -> Vec<T::AccountId> {
-
+	pub fn create_owners_from(
+		ownership: &Ownership<T::AccountId>,
+		id: &HashOf<T>,
+		approval: Approval,
+	) -> Vec<T::AccountId> {
 		match ownership {
 			Ownership::Signer(who) => {
 				// Set the signer as the owner
-				vec![who]
+				vec![who.clone()]
 			},
 			Ownership::Other(who) => {
 				// Adding a waiting approval for the capsule
@@ -198,7 +204,5 @@ impl<T: Config> Pallet<T> {
 				Vec::new()
 			},
 		}
-
 	}
-
 }

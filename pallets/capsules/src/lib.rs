@@ -18,11 +18,10 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use capsule::{CapsuleIdFor, *};
-	use common_types::{Balance, CidFor, ContentSize, HashOf, Time};
+	use common_types::{CidFor, ContentSize, HashOf};
 	use container::*;
 	use frame_support::{
-		pallet_prelude::{StorageDoubleMap, ValueQuery, *},
-		storage::KeyLenOf,
+		pallet_prelude::{StorageDoubleMap, *},
 		Blake2_128Concat,
 	};
 	use frame_system::pallet_prelude::*;
@@ -144,6 +143,8 @@ pub mod pallet {
 			app_data: Vec<u8>,
 			/// Owner
 			ownership: Ownership<T::AccountId>,
+			/// Followers status
+			followers_status: FollowersStatus,
 		},
 		/// A waiting approval has been approved
 		CapsuleOwnershipApproved {
@@ -185,14 +186,14 @@ pub mod pallet {
 		},
 		/// Capsule deleted
 		CapsuleDeleted { capsule_id: CapsuleIdFor<T> },
-		/// Uploaded Container
-		ContainerUploaded {
+		/// Container uploaded
+		ContainerCreated {
 			container_id: ContainerIdOf<T>,
 			app_id: AppIdFor<T>,
-			follower_status: FollowersStatus,
+			followers_status: FollowersStatus,
 			app_data: Vec<u8>,
-		}
-
+			ownership: Ownership<T::AccountId>,
+		},
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -434,5 +435,20 @@ pub mod pallet {
 		/*
 		Container related dispatchables
 		*/
+
+		/// Create a container
+		#[pallet::call_index(15)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn create_container(
+			origin: OriginFor<T>,
+			app_id: AppIdFor<T>,
+			maybe_other_owner: Option<T::AccountId>,
+			followers_status: FollowersStatus,
+			app_data: Vec<u8>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::create_container_from(who, app_id, maybe_other_owner, followers_status, app_data)
+		}
 	}
 }
