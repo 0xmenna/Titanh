@@ -1,4 +1,4 @@
-use crate::{AppData, AppIdFor, Config, FollowersStatus};
+use crate::{AppData, AppIdFor, Config, DeletionCompletion, FollowersStatus};
 use codec::{Decode, Encode, MaxEncodedLen};
 use common_types::*;
 use frame_system::Config as SystemConfig;
@@ -27,6 +27,8 @@ where
 	MaxAccounts: Get<u32>,
 	S: Get<u32>,
 {
+	// Capsule status
+	pub status: Status,
 	/// IPFS cid that points to the content
 	pub cid: Cid,
 	/// Size in bytes of the underline content
@@ -39,6 +41,15 @@ where
 	pub followers_status: FollowersStatus,
 	/// App specific metadata
 	pub app_data: AppData<AppId, S>,
+}
+
+#[derive(Encode, Decode, Clone, Eq, Default, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
+pub enum Status {
+	#[default]
+	Live,
+	ItemsDeletion(DeletionCompletion),
+	CapsuleContainersDeletion,
+	FinalDeletion,
 }
 
 /// Data to upload
@@ -73,10 +84,11 @@ impl<T: Config> CapsuleMetaBuilder<T> {
 
 	pub fn build(self) -> Result<CapsuleMetadataOf<T>, DispatchError> {
 		Ok(CapsuleMetadata {
+			status: Default::default(),
 			cid: self.upload_data.cid,
 			size: self.upload_data.size,
 			ending_retention_block: self.upload_data.ending_retention_block,
-			owners: self.owners.try_into().map_err(|_| crate::Error::<T>::BadOwners)?,
+			owners: self.owners.try_into().map_err(|_| crate::Error::<T>::TooManyOwners)?,
 			followers_status: self.upload_data.followers_status,
 			app_data: AppData {
 				app_id: self.app_id,

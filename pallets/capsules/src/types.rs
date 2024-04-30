@@ -1,18 +1,17 @@
-use crate::Config;
+use crate::{CapsuleContainers, CapsuleFollowers, Config, OwnersWaitingApprovals};
 use codec::{Decode, Encode, MaxEncodedLen};
 use common_types::*;
-use frame_system::{Config as SystemConfig, Pallet};
+use frame_support::storage::KeyLenOf;
+use frame_system::Config as SystemConfig;
 use pallet_app_registrar::PermissionsApp;
 use scale_info::TypeInfo;
-use sp_core::Get;
+use sp_core::{Get, RuntimeDebug};
+use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
 /// An application specific identifier
 pub type AppIdFor<T> =
 	<<T as Config>::Permissions as PermissionsApp<<T as SystemConfig>::AccountId>>::AppId;
-
-/// Account balance
-pub type BalanceOf<T> = <T as Config>::Balance;
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
 #[scale_info(skip_type_params(S))]
@@ -28,6 +27,7 @@ pub struct AppData<AppId, S: Get<u32>> {
 pub enum Follower {
 	#[default]
 	Basic,
+	WaitingApprovalForPrivileged,
 	Privileged,
 }
 
@@ -49,9 +49,35 @@ pub enum Ownership<AccountId> {
 }
 
 /// Owners approvals
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum Approval {
+	Capsule,
+	Container,
+}
+
+pub enum IdComputation {
+	Capsule,
+	Container,
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum CapsuleItems {
+	WaitingOwnershipApprovals,
+	Followers,
+	KeysInContainers,
+}
+
+/// Clear-cursors for capsule references (ownership approvals, followers and capsule containers)
+pub type CapsuleCursorsOf<T> = (
+	Option<BoundedVec<u8, KeyLenOf<OwnersWaitingApprovals<T>>>>,
+	Option<BoundedVec<u8, KeyLenOf<CapsuleFollowers<T>>>>,
+	Option<BoundedVec<u8, KeyLenOf<CapsuleContainers<T>>>>,
+);
+
+/// The deletion completion of the itmes of a capsule
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum Approvals {
-	#[default]
-	None,
-	Waiting,
+pub struct DeletionCompletion {
+	pub ownership_approvals: bool,
+	pub followers: bool,
+	pub container_keys: bool,
 }
