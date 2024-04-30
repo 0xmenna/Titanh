@@ -187,7 +187,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	pub fn aprove_privileged_follow_from(
+	pub fn approve_privileged_follow_from(
 		who: T::AccountId,
 		capsule_id: CapsuleIdFor<T>,
 	) -> DispatchResult {
@@ -252,7 +252,10 @@ impl<T: Config> Pallet<T> {
 		capsule_id: CapsuleIdFor<T>,
 	) -> DispatchResult {
 		let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
-		assert!(capsule.status == Status::Live, "The capsule is already in the destroying state");
+		assert!(
+			capsule.status == Status::Live,
+			"The capsule must be live to transition to the first destroying stage"
+		);
 		// If the retention period has elapsed, anyone is allowed to destroy the capsule.
 		// This is to increase the level of decentralization.
 		// Else, only an owner is capable to start the deletion of a capsule
@@ -282,11 +285,8 @@ impl<T: Config> Pallet<T> {
 				.map(|x| &x[..]),
 		);
 
-		let removal_completion = Self::modify_cursors_for_approvals(
-			&capsule_id,
-			maybe_cursors.as_mut(),
-			r.maybe_cursor.clone(),
-		);
+		let removal_completion =
+			Self::modify_cursors_for_approvals(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
 
 		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
 			if removal_completion {
@@ -320,11 +320,8 @@ impl<T: Config> Pallet<T> {
 				.map(|x| &x[..]),
 		);
 
-		let removal_completion = Self::modify_cursors_for_followers(
-			&capsule_id,
-			maybe_cursors.as_mut(),
-			r.maybe_cursor.clone(),
-		);
+		let removal_completion =
+			Self::modify_cursors_for_followers(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
 
 		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
 			if removal_completion {
@@ -400,7 +397,7 @@ impl<T: Config> Pallet<T> {
 		let removal_completion = Self::modify_cursors_for_capsule_containers(
 			&capsule_id,
 			maybe_cursors.as_mut(),
-			r.maybe_cursor.clone(),
+			r.maybe_cursor,
 		);
 
 		if removal_completion {
@@ -411,6 +408,18 @@ impl<T: Config> Pallet<T> {
 			capsule_id,
 			removal_completion,
 		});
+
+		Ok(())
+	}
+
+	pub fn finish_destroy_capsule_from(capsule_id: CapsuleIdFor<T>) -> DispatchResult {
+		let capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+
+		ensure!(capsule.status == Status::FinalDeletion, Error::<T>::IncorrectCapsuleStatus);
+
+		Capsules::<T>::remove(&capsule_id);
+		CapsuleClearCursors::<T>::remove(&capsule_id);
+		Self::deposit_event(Event::<T>::CapsuleDeleted { capsule_id });
 
 		Ok(())
 	}

@@ -48,8 +48,6 @@ pub mod pallet {
 		/// A static prefix to compute a container id
 		#[pallet::constant]
 		type ContainerIdPrefix: Get<&'static [u8]>;
-		/// Type for managing time
-		type Timestamp: Time;
 		/// The maximum size of the encoded app specific metadata
 		#[pallet::constant]
 		type MaxEncodedAppMetadata: Get<u32> + Debug + Clone;
@@ -177,12 +175,14 @@ pub mod pallet {
 			// type of items deleted
 			items: CapsuleItems,
 		},
-		/// Capsule containers
+		/// Capsule containers deleted
 		CapsuleContainersDeleted {
 			capsule_id: CapsuleIdFor<T>,
 			/// Wether all itemss have been deleted
 			removal_completion: bool,
 		},
+		/// Capsule deleted
+		CapsuleDeleted { capsule_id: CapsuleIdFor<T> },
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -344,7 +344,79 @@ pub mod pallet {
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-			Self::aprove_privileged_follow_from(who, capsule_id)
+			Self::approve_privileged_follow_from(who, capsule_id)
+		}
+
+		/// Start the deletion of a capsule
+		#[pallet::call_index(9)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn start_destroy_capsule(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::start_destroy_capsule_from(who, capsule_id)
+		}
+
+		/// Deletes all ownership approvals of a capsule, up to `T::RemoveItemsLimit`
+		#[pallet::call_index(10)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn destroy_capsule_ownership_approvals(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			ensure_signed(origin)?;
+			Self::destroy_ownership_approvals_from(capsule_id, T::RemoveItemsLimit::get())
+		}
+
+		/// Deletes all followers of a capsule, up to `T::RemoveItemsLimit`
+		#[pallet::call_index(11)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn destroy_capsule_followers(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			ensure_signed(origin)?;
+			Self::destroy_followers_from(capsule_id, T::RemoveItemsLimit::get())
+		}
+
+		/// Deletes all capsule within a container, up to `T::RemoveItemsLimit`
+		#[pallet::call_index(12)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn destroy_capsule_container_keys(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			ensure_signed(origin)?;
+			Self::destroy_container_keys_of(capsule_id, T::RemoveItemsLimit::get())
+		}
+
+		/// Deletes all entries of `CapsuleContainers`, up to T::RemoveItemsLimit`
+		#[pallet::call_index(13)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn destroy_capsule_containers(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			ensure_signed(origin)?;
+			Self::destroy_capsule_containers_from(capsule_id, T::RemoveItemsLimit::get())
+		}
+
+		/// Finish the destroy of a capsule
+		#[pallet::call_index(14)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn finish_destroy_capsule(
+			origin: OriginFor<T>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			ensure_signed(origin)?;
+			Self::finish_destroy_capsule_from(capsule_id)
 		}
 
 		/*
