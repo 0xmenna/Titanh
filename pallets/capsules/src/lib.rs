@@ -22,6 +22,7 @@ pub mod pallet {
 	use container::*;
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, ValueQuery, *},
+		storage::KeyLenOf,
 		Blake2_128Concat,
 	};
 	use frame_system::pallet_prelude::*;
@@ -60,7 +61,7 @@ pub mod pallet {
 		type StringLimit: Get<u32> + Clone;
 		/// Permissions for accounts to perform operations under some application
 		type Permissions: PermissionsApp<Self::AccountId>;
-		/// Max number of items to destroy per `destroy_capsule_ownership_approvals`, `destroy_followers`, `destroy_container_ownership_approvals` and `destroy_container_keys` call.
+		/// Max number of items to destroy per `destroy_capsule_ownership_approvals`, `destroy_followers` and `destroy_container_keys` call.
 		///
 		/// Must be configured to result in a weight that makes each call fit in a block.
 		#[pallet::constant]
@@ -84,11 +85,30 @@ pub mod pallet {
 	pub type CapsuleFollowers<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
-		T::AccountId,
-		Twox64Concat,
 		CapsuleIdFor<T>,
+		Twox64Concat,
+		T::AccountId,
 		Follower,
 	>;
+
+	/// Containers in which a capsule is defined, giving its associated key
+	// This is needed for efficiency reasons.
+	// If a capsule is being deleted, to avoid an undefined number of transactions for the deletion,
+	// we define the storage to know in what containers a capsule is defined and with what key.
+	#[pallet::storage]
+	pub type CapsuleContainers<T: Config> = StorageDoubleMap<
+		_,
+		Twox64Concat,
+		CapsuleIdFor<T>,
+		Twox64Concat,
+		ContainerIdOf<T>,
+		KeyOf<T>,
+	>;
+
+	/// Clear-cursor for Capsule deleting items, map from Capsule -> (Maybe) CapsuleCursorOf.
+	#[pallet::storage]
+	pub(super) type CapsuleClearCursors<T: Config> =
+		StorageMap<_, Twox64Concat, CapsuleIdFor<T>, CapsuleCursorsOf<T>>;
 
 	/// Container with different capsules identified by a key
 	#[pallet::storage]
@@ -149,6 +169,20 @@ pub mod pallet {
 		PrivilegedFollowerWaitingToApprove { capsule_id: CapsuleIdFor<T>, who: T::AccountId },
 		/// A waiting approval has been approved
 		PrivilegedFollowApproved { capsule_id: CapsuleIdFor<T>, who: T::AccountId },
+		/// Capsule items have been deleted
+		CapsuleItemsDeleted {
+			capsule_id: CapsuleIdFor<T>,
+			/// Wether all items have been deleted
+			removal_completion: bool,
+			// type of items deleted
+			items: CapsuleItems,
+		},
+		/// Capsule containers
+		CapsuleContainersDeleted {
+			capsule_id: CapsuleIdFor<T>,
+			/// Wether all itemss have been deleted
+			removal_completion: bool,
+		},
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -178,10 +212,8 @@ pub mod pallet {
 		AlreadyFollower,
 		/// Invalid block number for a retention extension
 		BadBlockNumber,
-		// Capsule is destroying
-		DestroyingCapsule,
-		// Capsule is live and cannot destroy associated data
-		LiveCapsule,
+		// Invalid deletion stage
+		IncorrectCapsuleStatus,
 	}
 
 	#[pallet::call]
@@ -306,7 +338,7 @@ pub mod pallet {
 		/// Approves a privileged follower request
 		#[pallet::call_index(8)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
-		pub fn aprove_privileged_follow(
+		pub fn approve_privileged_follow(
 			origin: OriginFor<T>,
 			capsule_id: CapsuleIdFor<T>,
 		) -> DispatchResult {

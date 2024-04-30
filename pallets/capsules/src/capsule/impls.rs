@@ -1,11 +1,15 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
 use crate::{
-	capsule::Status, AppIdFor, Approval, CapsuleFollowers, Capsules, Config, Error, Event,
-	Follower, FollowersStatus, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
+	capsule::Status,
+	container::{ContainerIdOf, KeyOf},
+	AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers, CapsuleItems,
+	Capsules, Config, Container, Error, Event, Follower, FollowersStatus, IdComputation,
+	OwnersWaitingApprovals, Ownership, Pallet,
 };
 use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
+use sp_core::Get;
 use sp_runtime::DispatchResult;
 
 /// Capsule related logic
@@ -103,10 +107,10 @@ impl<T: Config> Pallet<T> {
 		);
 		// check that `who` is not already a follower
 		ensure!(
-			CapsuleFollowers::<T>::get(&who, &capsule_id).is_none(),
+			CapsuleFollowers::<T>::get(&capsule_id, &who).is_none(),
 			Error::<T>::AlreadyFollower
 		);
-		CapsuleFollowers::<T>::insert(&who, &capsule_id, Follower::Basic);
+		CapsuleFollowers::<T>::insert(&capsule_id, &who, Follower::Basic);
 
 		// Emit event
 		Self::deposit_event(Event::<T>::CapsuleFollowed { capsule_id, follower: who });
@@ -164,13 +168,13 @@ impl<T: Config> Pallet<T> {
 		);
 		// check that `follower` is not already a priviledged follower or is in a waiting approval state
 		ensure!(
-			CapsuleFollowers::<T>::get(&follower, &capsule_id).unwrap_or_default()
+			CapsuleFollowers::<T>::get(&capsule_id, &follower).unwrap_or_default()
 				== Follower::Basic,
 			Error::<T>::AlreadyFollower
 		);
 		CapsuleFollowers::<T>::insert(
-			&follower,
 			&capsule_id,
+			&follower,
 			Follower::WaitingApprovalForPrivileged,
 		);
 
@@ -191,11 +195,11 @@ impl<T: Config> Pallet<T> {
 			Self::ensure_capsule_liveness(&capsule)?;
 			// check that `who` is in a waiting approval state
 			ensure!(
-				CapsuleFollowers::<T>::get(&who, &capsule_id).unwrap_or_default()
+				CapsuleFollowers::<T>::get(&capsule_id, &who).unwrap_or_default()
 					== Follower::WaitingApprovalForPrivileged,
 				Error::<T>::NoWaitingApproval
 			);
-			CapsuleFollowers::<T>::insert(&who, &capsule_id, Follower::Privileged);
+			CapsuleFollowers::<T>::insert(&capsule_id, &who, Follower::Privileged);
 
 			// Emit event
 			Self::deposit_event(Event::<T>::PrivilegedFollowApproved { capsule_id, who });
@@ -248,26 +252,166 @@ impl<T: Config> Pallet<T> {
 		capsule_id: CapsuleIdFor<T>,
 	) -> DispatchResult {
 		let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
-		assert!(
-			capsule.status != Status::Destroying,
-			"The capsule is already in the destroying state"
-		);
+		assert!(capsule.status == Status::Live, "The capsule is already in the destroying state");
 		// If the retention period has elapsed, anyone is allowed to destroy the capsule.
 		// This is to increase the level of decentralization.
 		// Else, only an owner is capable to start the deletion of a capsule
 		if capsule.ending_retention_block > <frame_system::Pallet<T>>::block_number() {
 			ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
 		}
-		capsule.status = Status::Destroying;
+		capsule.status = Status::ItemsDeletion(Default::default());
 
 		Ok(())
 	}
 
-	pub fn destroy_ownership_approvals_from(capsule_id: CapsuleIdFor<T>) -> DispatchResult {
-		let capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
-		// Check if the removal of the capsule has been initiated
-		ensure!(capsule.status == Status::Destroying, Error::<T>::LiveCapsule);
-		for (i, who) in OwnersWaitingApprovals::<T>::iter_key_prefix(&capsule_id).enumerate() {}
+	pub fn destroy_ownership_approvals_from(
+		capsule_id: CapsuleIdFor<T>,
+		max: u32,
+	) -> DispatchResult {
+		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+
+		let mut maybe_cursors = CapsuleClearCursors::<T>::get(&capsule_id);
+		let r = OwnersWaitingApprovals::<T>::clear_prefix(
+			&capsule_id,
+			max,
+			maybe_cursors
+				.clone()
+				.map(|cursors| cursors.0)
+				.flatten()
+				.as_ref()
+				.map(|x| &x[..]),
+		);
+
+		let removal_completion = Self::modify_cursors_for_approvals(
+			&capsule_id,
+			maybe_cursors.as_mut(),
+			r.maybe_cursor.clone(),
+		);
+
+		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+			if removal_completion {
+				deletion_completition.ownership_approvals = true;
+				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+			}
+			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
+				capsule_id,
+				removal_completion,
+				items: CapsuleItems::WaitingOwnershipApprovals,
+			});
+
+			Ok(())
+		} else {
+			return Err(Error::<T>::IncorrectCapsuleStatus.into());
+		}
+	}
+
+	pub fn destroy_followers_from(capsule_id: CapsuleIdFor<T>, max: u32) -> DispatchResult {
+		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+
+		let mut maybe_cursors = CapsuleClearCursors::<T>::get(&capsule_id);
+		let r = CapsuleFollowers::<T>::clear_prefix(
+			&capsule_id,
+			max,
+			maybe_cursors
+				.clone()
+				.map(|cursors| cursors.1)
+				.flatten()
+				.as_ref()
+				.map(|x| &x[..]),
+		);
+
+		let removal_completion = Self::modify_cursors_for_followers(
+			&capsule_id,
+			maybe_cursors.as_mut(),
+			r.maybe_cursor.clone(),
+		);
+
+		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+			if removal_completion {
+				deletion_completition.followers = true;
+				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+			}
+			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
+				capsule_id,
+				removal_completion,
+				items: CapsuleItems::Followers,
+			});
+
+			Ok(())
+		} else {
+			return Err(Error::<T>::IncorrectCapsuleStatus.into());
+		}
+	}
+
+	pub fn destroy_container_keys_of(capsule_id: CapsuleIdFor<T>, max: u32) -> DispatchResult {
+		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+
+		let mut removal_completion = true;
+		for (i, (container_id, key)) in CapsuleContainers::<T>::iter_prefix(&capsule_id).enumerate()
+		{
+			if i >= max as usize {
+				removal_completion = false;
+				break;
+			}
+
+			Container::<T>::remove(container_id, key);
+		}
+
+		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+			if removal_completion {
+				deletion_completition.container_keys = true;
+				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+			}
+
+			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
+				capsule_id,
+				removal_completion,
+				items: CapsuleItems::KeysInContainers,
+			});
+
+			Ok(())
+		} else {
+			return Err(Error::<T>::IncorrectCapsuleStatus.into());
+		}
+	}
+
+	pub fn destroy_capsule_containers_from(
+		capsule_id: CapsuleIdFor<T>,
+		max: u32,
+	) -> DispatchResult {
+		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+		ensure!(
+			capsule.status == Status::CapsuleContainersDeletion,
+			Error::<T>::IncorrectCapsuleStatus
+		);
+
+		let mut maybe_cursors = CapsuleClearCursors::<T>::get(&capsule_id);
+		let r = CapsuleFollowers::<T>::clear_prefix(
+			&capsule_id,
+			max,
+			maybe_cursors
+				.clone()
+				.map(|cursors| cursors.2)
+				.flatten()
+				.as_ref()
+				.map(|x| &x[..]),
+		);
+
+		let removal_completion = Self::modify_cursors_for_capsule_containers(
+			&capsule_id,
+			maybe_cursors.as_mut(),
+			r.maybe_cursor.clone(),
+		);
+
+		if removal_completion {
+			capsule.status = Status::FinalDeletion
+		}
+
+		Self::deposit_event(Event::<T>::CapsuleContainersDeleted {
+			capsule_id,
+			removal_completion,
+		});
+
 		Ok(())
 	}
 

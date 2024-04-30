@@ -1,4 +1,4 @@
-use crate::{AppData, AppIdFor, Config, FollowersStatus};
+use crate::{AppData, AppIdFor, Config, DeletionCompletion, FollowersStatus};
 use codec::{Decode, Encode, MaxEncodedLen};
 use common_types::*;
 use frame_system::Config as SystemConfig;
@@ -47,7 +47,9 @@ where
 pub enum Status {
 	#[default]
 	Live,
-	Destroying,
+	ItemsDeletion(DeletionCompletion),
+	CapsuleContainersDeletion,
+	FinalDeletion,
 }
 
 /// Data to upload
