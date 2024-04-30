@@ -77,11 +77,23 @@ pub mod pallet {
 
 	pub enum Event<T: Config> {
 		/// A user has successfully set a new value.
-		SomethingStored {
+		CreatedApp {
 			/// The new value set.
-			something: u32,
+			owner: T::AccountId,
 			/// The account who set the new value.
-			who: T::AccountId,
+			app_id: T::AppId,
+		},
+		SettedSubscriptionStatus {
+			app_id: T::AppId,
+			status: AppSubscriptionStatus,
+		},
+		AddedPermissionAccount {
+			app_id: T::AppId,
+			account_id:T::AccountId,
+		},
+		AddedAccount {
+			account_id: T::AccountId,
+			app_id: T::AppId,
 		},
 	}
 
@@ -122,6 +134,10 @@ pub mod pallet {
 
 			AppPermission::<T>::insert(index, who.clone(), true);
 
+			Self::deposit_event(Event::<T>::CreatedApp{
+				owner: who,
+				app_id: index
+			});
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
@@ -144,10 +160,15 @@ pub mod pallet {
 
 			app_metadata.status = subscription_status;
 
+			Self::deposit_event(Event::<T>::SettedSubscriptionStatus{
+				app_id: app_id,
+				status: app_metadata.status,
+			});
+			
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
-
+		// TODO: Aggiungi una lista di attesa, uno storage in cui aggiungi tutti quelli che vogliono iscriversi all'app
 		#[pallet::call_index(2)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn enable_account_permission(
@@ -155,6 +176,7 @@ pub mod pallet {
 			app_id: T::AppId,
 			account_to_add: T::AccountId,
 		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 
 			let app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
@@ -166,8 +188,12 @@ pub mod pallet {
 				Error::<T>::IncorrectStatus
 			);
 
-			AppPermission::<T>::insert(app_id, account_to_add, true);
-
+			AppPermission::<T>::insert(app_id, &account_to_add, true);
+			
+			Self::deposit_event(Event::<T>::AddedPermissionAccount{
+				app_id: app_id,
+				account_id: account_to_add,
+			});
 			Ok(())
 		}
 
@@ -177,16 +203,21 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			app_id: T::AppId,
 		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-
+			// Check that the status is set to Anyone.
 			ensure!(
 				AppSubscriptionStatus::Anyone
 					== AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?.status,
 				Error::<T>::IncorrectStatus
 			);
+			// Insert the accountId into the storage AppPermission
+			AppPermission::<T>::insert(app_id, &who, true);
 
-			AppPermission::<T>::insert(app_id, who, true);
-
+			Self::deposit_event(Event::<T>::AddedAccount{
+				account_id: who,
+				app_id: app_id,
+			});
 			Ok(())
 		}
 	}
