@@ -142,6 +142,8 @@ pub mod pallet {
 			size: ContentSize,
 			/// App specific metadata
 			app_data: Vec<u8>,
+			/// Owner
+			ownership: Ownership<T::AccountId>,
 		},
 		/// A waiting approval has been approved
 		CapsuleOwnershipApproved {
@@ -183,6 +185,14 @@ pub mod pallet {
 		},
 		/// Capsule deleted
 		CapsuleDeleted { capsule_id: CapsuleIdFor<T> },
+		/// Uploaded Container
+		ContainerUploaded {
+			container_id: ContainerIdOf<T>,
+			app_id: AppIdFor<T>,
+			follower_status: FollowersStatus,
+			app_data: Vec<u8>,
+		}
+
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -212,8 +222,10 @@ pub mod pallet {
 		AlreadyFollower,
 		/// Invalid block number for a retention extension
 		BadBlockNumber,
-		// Invalid deletion stage
+		/// Invalid deletion stage
 		IncorrectCapsuleStatus,
+		/// Invalid Container
+		InvalidContainerId,
 	}
 
 	#[pallet::call]

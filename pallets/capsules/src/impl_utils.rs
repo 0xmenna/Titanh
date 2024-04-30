@@ -1,11 +1,8 @@
 use crate::{
-	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status},
-	container::ContainerIdOf,
-	AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, CapsuleItems, Capsules, Config,
-	DeletionCompletion, Error, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
+	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status}, container::ContainerIdOf, AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, CapsuleItems, Capsules, Config, Container, ContainerDetails, DeletionCompletion, Error, IdComputation, OwnersWaitingApprovals, Ownership, Pallet
 };
 use codec::Encode;
-use common_types::Accounts;
+use common_types::{Accounts, HashOf};
 use frame_support::{ensure, storage::KeyLenOf};
 use sp_core::{Get, Hasher};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
@@ -43,6 +40,10 @@ impl<T: Config> Pallet<T> {
 
 	pub fn capsule_exists(capsule_id: &CapsuleIdFor<T>) -> bool {
 		Capsules::<T>::get(capsule_id).is_some()
+	}
+
+	pub fn container_exists(container_id: &ContainerIdOf<T>) -> bool {
+		ContainerDetails::<T>::get(container_id).is_some()
 	}
 
 	pub fn try_approve_capsule_ownership(
@@ -182,4 +183,22 @@ impl<T: Config> Pallet<T> {
 			capsule.status = Status::CapsuleContainersDeletion
 		}
 	}
+
+	pub fn create_owners_from(ownership: Ownership<T::AccountId>, id: &HashOf<T>, approval: Approval) -> Vec<T::AccountId> {
+
+		match ownership {
+			Ownership::Signer(who) => {
+				// Set the signer as the owner
+				vec![who]
+			},
+			Ownership::Other(who) => {
+				// Adding a waiting approval for the capsule
+				// The owner must accept it before becoming an owner
+				OwnersWaitingApprovals::<T>::insert(id.clone(), who, approval);
+				Vec::new()
+			},
+		}
+
+	}
+
 }

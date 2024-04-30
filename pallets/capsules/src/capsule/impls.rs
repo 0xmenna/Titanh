@@ -218,18 +218,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::CapsuleIdAlreadyExists);
 
-		let owners = match ownership {
-			Ownership::Signer(who) => {
-				// Set the signer as the owner
-				vec![who]
-			},
-			Ownership::Other(who) => {
-				// Adding a waiting approval for the capsule
-				// The owner must accept it before becoming an owner
-				OwnersWaitingApprovals::<T>::insert(capsule_id.clone(), who, Approval::Capsule);
-				Vec::new()
-			},
-		};
+		let owners = Self::create_owners_from(ownership, &capsule_id, Approval::Capsule);
 
 		// Construct storing metadata and insert into storage
 		let capsule_metadata = CapsuleMetaBuilder::<T>::new(app_id, owners, metadata).build()?;
@@ -242,6 +231,7 @@ impl<T: Config> Pallet<T> {
 			cid: capsule_metadata.cid,
 			size: capsule_metadata.size,
 			app_data: capsule_metadata.app_data.data.to_vec(),
+			ownership,
 		});
 
 		Ok(())
