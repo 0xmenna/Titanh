@@ -5,7 +5,7 @@ use frame_support::storage::KeyLenOf;
 use frame_system::Config as SystemConfig;
 use pallet_app_registrar::PermissionsApp;
 use scale_info::TypeInfo;
-use sp_core::{Get, RuntimeDebug};
+use sp_core::Get;
 use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
@@ -42,7 +42,7 @@ pub enum FollowersStatus {
 }
 
 /// Wether a signer is the owner or wants to give ownerhip elsewhere
-#[derive(Clone)]
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum Ownership<AccountId> {
 	Signer(AccountId),
 	Other(AccountId),

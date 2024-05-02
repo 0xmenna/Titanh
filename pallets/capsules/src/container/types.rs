@@ -26,6 +26,9 @@ where
 	MaxAccounts: Get<u32>,
 	S: Get<u32>,
 {
+	/// Status of the container.
+	/// Indicates who can attach and detach capsules to/from a container
+	pub status: ContainerStatus,
 	/// The number of keys in the container
 	pub size: u32,
 	/// The owners of the container.
@@ -36,4 +39,11 @@ where
 	pub followers_status: FollowersStatus,
 	/// App specific metadata
 	pub app_data: AppData<AppId, S>,
+}
+
+#[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum ContainerStatus {
+	#[default]
+	RequiresOwnership,
+	Public,
 }

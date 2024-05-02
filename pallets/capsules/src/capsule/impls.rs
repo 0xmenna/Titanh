@@ -1,15 +1,12 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
 use crate::{
-	capsule::Status,
-	container::{ContainerIdOf, KeyOf},
-	AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers, CapsuleItems,
-	Capsules, Config, Container, Error, Event, Follower, FollowersStatus, IdComputation,
-	OwnersWaitingApprovals, Ownership, Pallet,
+	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
+	CapsuleItems, Capsules, Config, Container, Error, Event, Follower, FollowersStatus,
+	IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
-use sp_core::Get;
 use sp_runtime::DispatchResult;
 
 /// Capsule related logic
@@ -42,12 +39,16 @@ impl<T: Config> Pallet<T> {
 		// Moreover, the approval account might be in charge of completing the deletion.
 		let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
 		// Try to approve a capsule waiting approval, if any
-		Self::try_approve_capsule_ownership(&who, &capsule_id)?;
+		Self::try_approve_ownership(&who, &capsule_id, Approval::Capsule)?;
 		// Try to add the owner to capsule owners, if it does not exceeds the vector bounds
 		Self::try_add_owner(&who, &mut capsule.owners)?;
 
 		// Emit Event
-		Self::deposit_event(Event::<T>::CapsuleOwnershipApproved { id: capsule_id, who });
+		Self::deposit_event(Event::<T>::OwnershipApproved {
+			id: capsule_id,
+			who,
+			approval: Approval::Capsule,
+		});
 
 		Ok(())
 	}
@@ -61,19 +62,16 @@ impl<T: Config> Pallet<T> {
 		// Dispatches an error if `who` is not an owner of the capsule
 		let capsule = Self::capsule_from_owner(&who, &capsule_id)?;
 		Self::ensure_capsule_liveness(&capsule)?;
-		// check that `other_owner` is not already an owner
-		ensure!(capsule.owners.binary_search(&other_owner).is_err(), Error::<T>::AlreadyOwner);
 
-		// Add a waiting approval, only if there is not already the same one
-		if let Some(waiting_approval) = OwnersWaitingApprovals::<T>::get(&capsule_id, &other_owner)
-		{
-			debug_assert!(waiting_approval == Approval::Capsule, "The existant approval must be associated to a capsule because identifiers are based on their own prefixes");
-			return Err(Error::<T>::AccountAlreadyInWaitingApprovals.into());
-		}
-		OwnersWaitingApprovals::<T>::insert(&capsule_id, &who, Approval::Capsule);
+		Self::try_share_ownership(
+			&capsule_id,
+			&other_owner,
+			capsule.owners.to_vec(),
+			Approval::Capsule,
+		)?;
 
 		// Emit Event
-		Self::deposit_event(Event::<T>::CapsuleSharedOwnership { id: capsule_id, who });
+		Self::deposit_event(Event::<T>::SharedOwnership { id: capsule_id, who: other_owner, waiting_approval: Approval::Capsule });
 
 		Ok(())
 	}
@@ -218,18 +216,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::CapsuleIdAlreadyExists);
 
-		let owners = match ownership {
-			Ownership::Signer(who) => {
-				// Set the signer as the owner
-				vec![who]
-			},
-			Ownership::Other(who) => {
-				// Adding a waiting approval for the capsule
-				// The owner must accept it before becoming an owner
-				OwnersWaitingApprovals::<T>::insert(capsule_id.clone(), who, Approval::Capsule);
-				Vec::new()
-			},
-		};
+		let owners = Self::create_owners_from(&ownership, &capsule_id, Approval::Capsule);
 
 		// Construct storing metadata and insert into storage
 		let capsule_metadata = CapsuleMetaBuilder::<T>::new(app_id, owners, metadata).build()?;
@@ -242,6 +229,8 @@ impl<T: Config> Pallet<T> {
 			cid: capsule_metadata.cid,
 			size: capsule_metadata.size,
 			app_data: capsule_metadata.app_data.data.to_vec(),
+			ownership,
+			followers_status: capsule_metadata.followers_status,
 		});
 
 		Ok(())

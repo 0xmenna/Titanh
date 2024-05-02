@@ -1,12 +1,12 @@
 use crate::{
 	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status},
-	container::ContainerIdOf,
-	AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, CapsuleItems, Capsules, Config,
+	container::{ContainerDetailsOf, ContainerIdOf, ContainerStatus},
+	AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, Capsules, Config, ContainerDetails,
 	DeletionCompletion, Error, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use codec::Encode;
-use common_types::Accounts;
-use frame_support::{ensure, storage::KeyLenOf};
+use common_types::{Accounts, HashOf};
+use frame_support::ensure;
 use sp_core::{Get, Hasher};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
 
@@ -45,15 +45,20 @@ impl<T: Config> Pallet<T> {
 		Capsules::<T>::get(capsule_id).is_some()
 	}
 
-	pub fn try_approve_capsule_ownership(
+	pub fn container_exists(container_id: &ContainerIdOf<T>) -> bool {
+		ContainerDetails::<T>::get(container_id).is_some()
+	}
+
+	pub fn try_approve_ownership(
 		who: &T::AccountId,
-		capsule_id: &CapsuleIdFor<T>,
+		id: &HashOf<T>,
+		waiting_approval: Approval,
 	) -> DispatchResult {
-		OwnersWaitingApprovals::<T>::get(capsule_id, who)
-			.filter(|approval| approval == &Approval::Capsule)
+		OwnersWaitingApprovals::<T>::get(id, who)
+			.filter(|approval| approval == &waiting_approval)
 			.ok_or(Error::<T>::NoWaitingApproval)?;
 
-		OwnersWaitingApprovals::<T>::remove(capsule_id, who);
+		OwnersWaitingApprovals::<T>::remove(id, who);
 		Ok(())
 	}
 
@@ -98,6 +103,27 @@ impl<T: Config> Pallet<T> {
 		} else {
 			Err(Error::<T>::InvalidCapsuleId.into())
 		}
+	}
+
+	// Try to share an ownerhip of a capsule/container.
+	// The assumpation of the function is that the caller already checked the existance of the capsule/container
+	pub fn try_share_ownership(
+		id: &HashOf<T>,
+		other_owner: &T::AccountId,
+		current_owners: Vec<T::AccountId>,
+		requested_approval: Approval,
+	) -> DispatchResult {
+		// check that `other_owner` is not already an owner
+		ensure!(current_owners.binary_search(other_owner).is_err(), Error::<T>::AlreadyOwner);
+
+		// Add a waiting approval, only if there is not already the same one
+		if let Some(waiting_approval) = OwnersWaitingApprovals::<T>::get(&id, &other_owner) {
+			debug_assert!(waiting_approval == requested_approval, "The existant approval must be associated to a capsule/container because identifiers are based on their own prefixes");
+			return Err(Error::<T>::AccountAlreadyInWaitingApprovals.into());
+		}
+		OwnersWaitingApprovals::<T>::insert(id, other_owner, requested_approval);
+
+		Ok(())
 	}
 
 	// Utility for the OwnersWaitingApprovals Cursor
@@ -181,5 +207,42 @@ impl<T: Config> Pallet<T> {
 			}) {
 			capsule.status = Status::CapsuleContainersDeletion
 		}
+	}
+
+	pub fn create_owners_from(
+		ownership: &Ownership<T::AccountId>,
+		id: &HashOf<T>,
+		approval: Approval,
+	) -> Vec<T::AccountId> {
+		match ownership {
+			Ownership::Signer(who) => {
+				// Set the signer as the owner
+				vec![who.clone()]
+			},
+			Ownership::Other(who) => {
+				// Adding a waiting approval for the capsule
+				// The owner must accept it before becoming an owner
+				OwnersWaitingApprovals::<T>::insert(id.clone(), who, approval);
+				Vec::new()
+			},
+		}
+	}
+
+	// Returns the container metadata and wether the container requires ownership for capsule attachemnts/detachements.
+	pub fn container_from_maybe_owner(
+		who: &T::AccountId,
+		container_id: &ContainerIdOf<T>,
+	) -> Result<(ContainerDetailsOf<T>, bool), DispatchError> {
+		// If the status of the container requires to be an owner, ensure `who` is the owner of both the capsule and the container, else only of the capsule.
+		let container =
+			ContainerDetails::<T>::get(container_id).ok_or(Error::<T>::InvalidContainerId)?;
+		let requires_ownership = if container.status == ContainerStatus::RequiresOwnership {
+			ensure!(container.owners.binary_search(who).is_ok(), Error::<T>::BadOriginForOwnership);
+			true
+		} else {
+			false
+		};
+
+		Ok((container, requires_ownership))
 	}
 }
