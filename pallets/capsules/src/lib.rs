@@ -19,7 +19,7 @@ pub mod pallet {
 	use super::*;
 	use capsule::{CapsuleIdFor, *};
 	use common_types::{CidFor, ContentSize, HashOf};
-	use container::*;
+	use container::{ContainerIdOf, *};
 	use frame_support::{
 		pallet_prelude::{StorageDoubleMap, *},
 		Blake2_128Concat,
@@ -147,14 +147,16 @@ pub mod pallet {
 			followers_status: FollowersStatus,
 		},
 		/// A waiting approval has been approved
-		CapsuleOwnershipApproved {
+		OwnershipApproved {
 			// Capsule identifier
-			id: CapsuleIdFor<T>,
+			id: HashOf<T>,
 			// Approval account
 			who: T::AccountId,
+			// Type of approval (capsule or container)
+			approval: Approval,
 		},
 		/// Shared capsule ownership
-		CapsuleSharedOwnership { id: CapsuleIdFor<T>, who: T::AccountId },
+		SharedOwnership { id: HashOf<T>, who: T::AccountId, waiting_approval: Approval },
 		/// Capsule Followers Status changed
 		CapsuleFollowersStatusChanged { capsule_id: CapsuleIdFor<T>, status: FollowersStatus },
 		/// A capsule has been followed
@@ -194,6 +196,16 @@ pub mod pallet {
 			app_data: Vec<u8>,
 			ownership: Ownership<T::AccountId>,
 		},
+		CapsuleAttached {
+			container_id: ContainerIdOf<T>,
+			key: Vec<u8>,
+			capsule_id: CapsuleIdFor<T>,
+		},
+		CapsuleDetached {
+			container_id: ContainerIdOf<T>,
+			key: Vec<u8>,
+			capsule_id: CapsuleIdFor<T>,
+		},
 	}
 
 	/// Errors that can be returned by this pallet.
@@ -227,6 +239,10 @@ pub mod pallet {
 		IncorrectCapsuleStatus,
 		/// Invalid Container
 		InvalidContainerId,
+		/// Invalid key format of a container
+		BadKeyFormat,
+		/// Invalid key
+		BadKey,
 	}
 
 	#[pallet::call]
@@ -449,6 +465,58 @@ pub mod pallet {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 			Self::create_container_from(who, app_id, maybe_other_owner, followers_status, app_data)
+		}
+
+		/// Approves an ownership request for a given container
+		#[pallet::call_index(16)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn approve_container_ownership(
+			origin: OriginFor<T>,
+			container_id: ContainerIdOf<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::approve_container_ownership_from(who, container_id)
+		}
+
+		/// Share the ownership of a container with another account
+		#[pallet::call_index(17)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn share_container_ownership(
+			origin: OriginFor<T>,
+			container_id: ContainerIdOf<T>,
+			other_owner: T::AccountId,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::share_container_ownership_from(who, container_id, other_owner)
+		}
+
+		/// Puts a capsule into a container
+		#[pallet::call_index(18)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn container_put(
+			origin: OriginFor<T>,
+			container_id: ContainerIdOf<T>,
+			key: Vec<u8>,
+			capsule_id: CapsuleIdFor<T>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::attach_capsule_to_container_from(who, container_id, key, capsule_id)
+		}
+
+		/// Removes a capsule from a container
+		#[pallet::call_index(19)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn container_remove(
+			origin: OriginFor<T>,
+			container_id: ContainerIdOf<T>,
+			key: Vec<u8>,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::detach_capsule_from_container(who, container_id, key)
 		}
 	}
 }
