@@ -9,6 +9,7 @@ use common_types::{BoundedString, EncodedData};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
 use sp_runtime::{traits::Saturating, DispatchResult};
+use sp_std::vec::Vec;
 
 /// Container related logic
 impl<T: Config> Pallet<T> {

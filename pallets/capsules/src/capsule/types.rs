@@ -5,6 +5,7 @@ use frame_system::Config as SystemConfig;
 use scale_info::TypeInfo;
 use sp_core::{Get, RuntimeDebug};
 use sp_runtime::DispatchError;
+use sp_std::vec::Vec;
 
 /// Capsule identifier
 pub type CapsuleIdFor<T> = HashOf<T>;

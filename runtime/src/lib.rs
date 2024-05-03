@@ -41,9 +41,6 @@ use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// Import the template pallet.
-pub use pallet_template;
-
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -253,21 +250,18 @@ impl pallet_app_registrar::Config for Runtime {
 parameter_types! {
 	pub CapsulePrefix: &'static [u8] = b"Capsule Identifier";
 	pub ContainerPrefix: &'static [u8] = b"Container Identifier";
-	pub const MaxEncodedAppMetadata: u32 = 1024;
-	pub const MaxOwners: u32 = 32;
-	pub const MaxStringLimit: u8 = 32;
-	pub const MaxRemoveItemList: u32 = 512;
 }
 
 impl pallet_capsules::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type CapsuleIdPrefix = CapsulePrefix;
 	type ContainerIdPrefix = ContainerPrefix;
-	type MaxEncodedAppMetadata = MaxEncodedAppMetadata;
-	type MaxOwners = MaxOwners;
-	type StringLimit = MaxStringLimit;
+	type MaxEncodedAppMetadata = ConstU32<1024>;
+	type MaxOwners = ConstU32<32>;
+	type StringLimit = ConstU32<32>;
 	type Permissions = AppRegistrar;
-	type RemoveItemsLimit = MaxRemoveItemList;
+	type RemoveItemsLimit = ConstU32<512>;
+	type MinimumRetentionPeriod = ConstU128<100>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

@@ -5,6 +5,7 @@ use codec::{Codec, Decode, Encode, MaxEncodedLen};
 pub use frame_support::traits::Time;
 use frame_support::Parameter;
 pub use frame_system::pallet_prelude::BlockNumberFor;
+use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
@@ -12,7 +13,7 @@ use sp_runtime::{
 	BoundedVec, FixedPointOperand,
 };
 use sp_std::fmt::Debug;
-
+use sp_std::vec::Vec;
 pub enum Error {
 	ScaleCodecDecodeError,
 	BadEncodedData,
@@ -89,9 +90,5 @@ impl<S: Get<u32>> BoundedString<S> {
 
 	pub fn to_vec(&self) -> Vec<u8> {
 		self.0.to_vec()
-	}
-
-	pub fn get_utf8(&self) -> String {
-		String::from_utf8_lossy(&self.0).to_string()
 	}
 }

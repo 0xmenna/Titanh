@@ -8,6 +8,7 @@ mod capsule;
 mod container;
 mod impl_utils;
 mod types;
+use sp_std::vec::Vec;
 pub use types::*;
 
 // All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
@@ -63,6 +64,9 @@ pub mod pallet {
 		/// Must be configured to result in a weight that makes each call fit in a block.
 		#[pallet::constant]
 		type RemoveItemsLimit: Get<u32>;
+		/// Minimum number of blocks for a capsule retention period
+		#[pallet::constant]
+		type MinimumRetentionPeriod: Get<BlockNumberFor<Self>>;
 	}
 
 	/// Capsules that wrap an IPFS CID
@@ -268,6 +272,8 @@ pub mod pallet {
 		BadKeyFormat,
 		/// Invalid key
 		BadKey,
+		/// Invalid number of blocks for the retention period
+		BadRetentionPeriod,
 	}
 
 	#[pallet::call]

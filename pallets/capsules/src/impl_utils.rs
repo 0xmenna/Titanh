@@ -9,6 +9,7 @@ use common_types::{Accounts, HashOf};
 use frame_support::ensure;
 use sp_core::{Get, Hasher};
 use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
+use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
 	pub fn ownership_from(

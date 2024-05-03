@@ -89,7 +89,7 @@ pub mod pallet {
 		},
 		AddedPermissionAccount {
 			app_id: T::AppId,
-			account_id:T::AccountId,
+			account_id: T::AccountId,
 		},
 		AddedAccount {
 			account_id: T::AccountId,
@@ -134,10 +134,7 @@ pub mod pallet {
 
 			AppPermission::<T>::insert(index, who.clone(), true);
 
-			Self::deposit_event(Event::<T>::CreatedApp{
-				owner: who,
-				app_id: index
-			});
+			Self::deposit_event(Event::<T>::CreatedApp { owner: who, app_id: index });
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
@@ -152,21 +149,29 @@ pub mod pallet {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 
-			let mut app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
+			AppMetadata::<T>::try_mutate(app_id, |maybe_app_metadata| {
+				if let Some(app_metadata) = maybe_app_metadata {
+					//let mut app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
 
-			ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
+					ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
 
-			ensure!(app_metadata.status != subscription_status, Error::<T>::IncorrectStatus);
+					ensure!(
+						app_metadata.status != subscription_status,
+						Error::<T>::IncorrectStatus
+					);
 
-			app_metadata.status = subscription_status;
+					app_metadata.status = subscription_status.clone();
 
-			Self::deposit_event(Event::<T>::SettedSubscriptionStatus{
-				app_id: app_id,
-				status: app_metadata.status,
-			});
-			
-			// Return a successful `DispatchResult`
-			Ok(())
+					Self::deposit_event(Event::<T>::SettedSubscriptionStatus {
+						app_id,
+						status: subscription_status,
+					});
+					Ok(())
+				} else {
+					Err(Error::<T>::AppNotExist.into())
+				}
+				// Return a successful `DispatchResult`
+			})
 		}
 		// TODO: Aggiungi una lista di attesa, uno storage in cui aggiungi tutti quelli che vogliono iscriversi all'app
 		#[pallet::call_index(2)]
@@ -189,9 +194,9 @@ pub mod pallet {
 			);
 
 			AppPermission::<T>::insert(app_id, &account_to_add, true);
-			
-			Self::deposit_event(Event::<T>::AddedPermissionAccount{
-				app_id: app_id,
+
+			Self::deposit_event(Event::<T>::AddedPermissionAccount {
+				app_id,
 				account_id: account_to_add,
 			});
 			Ok(())
@@ -214,10 +219,7 @@ pub mod pallet {
 			// Insert the accountId into the storage AppPermission
 			AppPermission::<T>::insert(app_id, &who, true);
 
-			Self::deposit_event(Event::<T>::AddedAccount{
-				account_id: who,
-				app_id: app_id,
-			});
+			Self::deposit_event(Event::<T>::AddedAccount { account_id: who, app_id });
 			Ok(())
 		}
 	}

@@ -7,7 +7,8 @@ use crate::{
 use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
-use sp_runtime::DispatchResult;
+use sp_core::Get;
+use sp_runtime::{DispatchResult, FixedU128};
 
 /// Capsule related logic
 impl<T: Config> Pallet<T> {
@@ -20,6 +21,12 @@ impl<T: Config> Pallet<T> {
 		ensure!(
 			T::Permissions::has_account_permissions(&who, app.clone()),
 			Error::<T>::AppPermissionDenied
+		);
+
+		ensure!(
+			&capsule.ending_retention_block
+				>= &(<frame_system::Pallet<T>>::block_number() + T::MinimumRetentionPeriod::get()),
+			Error::<T>::BadRetentionPeriod
 		);
 		// If no owner is provided as input, then the signer automatically becomes the owner.
 		// Otherwise the ownership is passed to the input account
@@ -71,7 +78,11 @@ impl<T: Config> Pallet<T> {
 		)?;
 
 		// Emit Event
-		Self::deposit_event(Event::<T>::SharedOwnership { id: capsule_id, who: other_owner, waiting_approval: Approval::Capsule });
+		Self::deposit_event(Event::<T>::SharedOwnership {
+			id: capsule_id,
+			who: other_owner,
+			waiting_approval: Approval::Capsule,
+		});
 
 		Ok(())
 	}
