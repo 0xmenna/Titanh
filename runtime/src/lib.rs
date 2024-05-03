@@ -245,9 +245,29 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-impl pallet_template::Config for Runtime {
+impl pallet_app_registrar::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Balance = Balance;
+	type AppId = u32;
+}
+
+parameter_types! {
+	pub CapsulePrefix: &'static [u8] = b"Capsule Identifier";
+	pub ContainerPrefix: &'static [u8] = b"Container Identifier";
+	pub const MaxEncodedAppMetadata: u32 = 1024;
+	pub const MaxOwners: u32 = 32;
+	pub const MaxStringLimit: u8 = 32;
+	pub const MaxRemoveItemList: u32 = 512;
+}
+
+impl pallet_capsules::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type CapsuleIdPrefix = CapsulePrefix;
+	type ContainerIdPrefix = ContainerPrefix;
+	type MaxEncodedAppMetadata = MaxEncodedAppMetadata;
+	type MaxOwners = MaxOwners;
+	type StringLimit = MaxStringLimit;
+	type Permissions = AppRegistrar;
+	type RemoveItemsLimit = MaxRemoveItemList;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.
@@ -289,7 +309,10 @@ mod runtime {
 	pub type Sudo = pallet_sudo;
 
 	#[runtime::pallet_index(7)]
-	pub type Template = pallet_template;
+	pub type AppRegistrar = pallet_app_registrar;
+
+	#[runtime::pallet_index(8)]
+	pub type Capsules = pallet_capsules;
 }
 
 /// The address format for describing accounts.

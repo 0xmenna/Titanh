@@ -156,22 +156,42 @@ pub mod pallet {
 			approval: Approval,
 		},
 		/// Shared capsule ownership
-		SharedOwnership { id: HashOf<T>, who: T::AccountId, waiting_approval: Approval },
+		SharedOwnership {
+			id: HashOf<T>,
+			who: T::AccountId,
+			waiting_approval: Approval,
+		},
 		/// Capsule Followers Status changed
-		CapsuleFollowersStatusChanged { capsule_id: CapsuleIdFor<T>, status: FollowersStatus },
+		CapsuleFollowersStatusChanged {
+			capsule_id: CapsuleIdFor<T>,
+			status: FollowersStatus,
+		},
 		/// A capsule has been followed
-		CapsuleFollowed { capsule_id: CapsuleIdFor<T>, follower: T::AccountId },
+		CapsuleFollowed {
+			capsule_id: CapsuleIdFor<T>,
+			follower: T::AccountId,
+		},
 		/// The content pointed by a capsule has changed
-		CapsuleContentChanged { capsule_id: CapsuleIdFor<T>, cid: CidFor<T>, size: ContentSize },
+		CapsuleContentChanged {
+			capsule_id: CapsuleIdFor<T>,
+			cid: CidFor<T>,
+			size: ContentSize,
+		},
 		/// The endind retention block has been extended
 		CapsuleEndingRetentionBlockExtended {
 			capsule_id: CapsuleIdFor<T>,
 			at_block: BlockNumberFor<T>,
 		},
 		/// A priviledged follower is added to a waiting for approval state
-		PrivilegedFollowerWaitingToApprove { capsule_id: CapsuleIdFor<T>, who: T::AccountId },
+		PrivilegedFollowerWaitingToApprove {
+			capsule_id: CapsuleIdFor<T>,
+			who: T::AccountId,
+		},
 		/// A waiting approval has been approved
-		PrivilegedFollowApproved { capsule_id: CapsuleIdFor<T>, who: T::AccountId },
+		PrivilegedFollowApproved {
+			capsule_id: CapsuleIdFor<T>,
+			who: T::AccountId,
+		},
 		/// Capsule items have been deleted
 		CapsuleItemsDeleted {
 			capsule_id: CapsuleIdFor<T>,
@@ -187,12 +207,13 @@ pub mod pallet {
 			removal_completion: bool,
 		},
 		/// Capsule deleted
-		CapsuleDeleted { capsule_id: CapsuleIdFor<T> },
+		CapsuleDeleted {
+			capsule_id: CapsuleIdFor<T>,
+		},
 		/// Container uploaded
 		ContainerCreated {
 			container_id: ContainerIdOf<T>,
 			app_id: AppIdFor<T>,
-			followers_status: FollowersStatus,
 			app_data: Vec<u8>,
 			ownership: Ownership<T::AccountId>,
 		},
@@ -205,6 +226,10 @@ pub mod pallet {
 			container_id: ContainerIdOf<T>,
 			key: Vec<u8>,
 			capsule_id: CapsuleIdFor<T>,
+		},
+		ContainerStatusChanged {
+			container_id: ContainerIdOf<T>,
+			status: ContainerStatus,
 		},
 	}
 
@@ -459,12 +484,11 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			app_id: AppIdFor<T>,
 			maybe_other_owner: Option<T::AccountId>,
-			followers_status: FollowersStatus,
-			app_data: Vec<u8>,
+			container_metadata: Vec<u8>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-			Self::create_container_from(who, app_id, maybe_other_owner, followers_status, app_data)
+			Self::create_container_from(who, app_id, maybe_other_owner, container_metadata)
 		}
 
 		/// Approves an ownership request for a given container
@@ -517,6 +541,19 @@ pub mod pallet {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 			Self::detach_capsule_from_container(who, container_id, key)
+		}
+
+		/// Change Container Status
+		#[pallet::call_index(20)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn change_container_status(
+			origin: OriginFor<T>,
+			container_id: ContainerIdOf<T>,
+			container_status: ContainerStatus,
+		) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			Self::change_container_status_from(who, container_id, container_status)
 		}
 	}
 }

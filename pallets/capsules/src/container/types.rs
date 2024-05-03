@@ -34,9 +34,6 @@ where
 	/// The owners of the container.
 	/// Each owner of the container is also owner of the capsules associated to the keys
 	pub owners: Accounts<AccountId, MaxAccounts>,
-	/// The types of followers allowed for the capsule.
-	/// Each follower will also be a follower of the underline capsules.
-	pub followers_status: FollowersStatus,
 	/// App specific metadata
 	pub app_data: AppData<AppId, S>,
 }

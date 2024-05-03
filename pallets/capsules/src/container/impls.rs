@@ -16,8 +16,7 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		app_id: AppIdFor<T>,
 		maybe_other_owner: Option<T::AccountId>,
-		followers_status: FollowersStatus,
-		app_data: Vec<u8>,
+		container_metadata: Vec<u8>,
 	) -> DispatchResult {
 		ensure!(
 			T::Permissions::has_account_permissions(&who, app_id.clone()),
@@ -25,7 +24,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		let container_id =
-			Self::compute_id(app_id.clone(), app_data.clone(), IdComputation::Container);
+			Self::compute_id(app_id.clone(), container_metadata.clone(), IdComputation::Container);
 		ensure!(!Self::container_exists(&container_id), Error::<T>::InvalidContainerId);
 
 		let ownership = Self::ownership_from(who, maybe_other_owner);
@@ -38,10 +37,10 @@ impl<T: Config> Pallet<T> {
 				// There are no capsules attached
 				size: 0,
 				owners: owners.try_into().map_err(|_| Error::<T>::TooManyOwners)?,
-				followers_status: followers_status.clone(),
 				app_data: AppData {
 					app_id: app_id.clone(),
-					data: EncodedData::from_slice(&app_data).map_err(|_| Error::<T>::BadAppData)?,
+					data: EncodedData::from_slice(&container_metadata)
+						.map_err(|_| Error::<T>::BadAppData)?,
 				},
 			},
 		);
@@ -49,8 +48,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::ContainerCreated {
 			container_id,
 			app_id,
-			followers_status,
-			app_data,
+			app_data: container_metadata,
 			ownership,
 		});
 
@@ -133,6 +131,21 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
+	pub fn change_container_status_from(
+		who: T::AccountId,
+		container_id: ContainerIdOf<T>,
+		status: ContainerStatus,
+	) -> DispatchResult {
+		let mut container =
+			ContainerDetails::<T>::get(&container_id).ok_or(Error::<T>::InvalidContainerId)?;
+		ensure!(container.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
+		container.status = status.clone();
+
+		Self::deposit_event(Event::<T>::ContainerStatusChanged { container_id, status });
+
+		Ok(())
+	}
+
 	/// Detach a capsule identified by `key` from a container.
 	pub fn detach_capsule_from_container(
 		who: T::AccountId,
@@ -151,7 +164,7 @@ impl<T: Config> Pallet<T> {
 		}
 		// Detach the capsule from the container using `key`
 		Container::<T>::remove(&container_id, &key);
-		container.size.saturating_inc();
+		container.size.saturating_dec();
 
 		Self::deposit_event(Event::<T>::CapsuleDetached {
 			container_id,
