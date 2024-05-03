@@ -66,7 +66,7 @@ pub mod pallet {
 		type RemoveItemsLimit: Get<u32>;
 		/// Minimum number of blocks for a capsule retention period
 		#[pallet::constant]
-		type MinimumRetentionPeriod: Get<BlockNumberFor<Self>>;
+		type MinimumRetentionPeriod: Get<u32>;
 	}
 
 	/// Capsules that wrap an IPFS CID

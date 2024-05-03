@@ -8,6 +8,7 @@ use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
 use sp_core::Get;
+use sp_runtime::Saturating;
 use sp_runtime::{DispatchResult, FixedU128};
 
 /// Capsule related logic
@@ -22,10 +23,10 @@ impl<T: Config> Pallet<T> {
 			T::Permissions::has_account_permissions(&who, app.clone()),
 			Error::<T>::AppPermissionDenied
 		);
-
 		ensure!(
 			&capsule.ending_retention_block
-				>= &(<frame_system::Pallet<T>>::block_number() + T::MinimumRetentionPeriod::get()),
+				>= &(<frame_system::Pallet<T>>::block_number()
+					.saturating_add(T::MinimumRetentionPeriod::get().into())),
 			Error::<T>::BadRetentionPeriod
 		);
 		// If no owner is provided as input, then the signer automatically becomes the owner.
