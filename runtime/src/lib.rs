@@ -172,6 +172,13 @@ impl frame_system::Config for Runtime {
 	type MaxConsumers = frame_support::traits::ConstU32<16>;
 }
 
+impl pallet_utility::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type PalletsOrigin = OriginCaller;
+	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
@@ -286,27 +293,30 @@ mod runtime {
 	pub type System = frame_system;
 
 	#[runtime::pallet_index(1)]
-	pub type Timestamp = pallet_timestamp;
+	pub type Utility = pallet_utility;
 
 	#[runtime::pallet_index(2)]
-	pub type Aura = pallet_aura;
+	pub type Timestamp = pallet_timestamp;
 
 	#[runtime::pallet_index(3)]
-	pub type Grandpa = pallet_grandpa;
+	pub type Aura = pallet_aura;
 
 	#[runtime::pallet_index(4)]
-	pub type Balances = pallet_balances;
+	pub type Grandpa = pallet_grandpa;
 
 	#[runtime::pallet_index(5)]
-	pub type TransactionPayment = pallet_transaction_payment;
+	pub type Balances = pallet_balances;
 
 	#[runtime::pallet_index(6)]
-	pub type Sudo = pallet_sudo;
+	pub type TransactionPayment = pallet_transaction_payment;
 
 	#[runtime::pallet_index(7)]
-	pub type AppRegistrar = pallet_app_registrar;
+	pub type Sudo = pallet_sudo;
 
 	#[runtime::pallet_index(8)]
+	pub type AppRegistrar = pallet_app_registrar;
+
+	#[runtime::pallet_index(9)]
 	pub type Capsules = pallet_capsules;
 }
 
@@ -357,7 +367,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_sudo, Sudo]
-		[pallet_template, TemplateModule]
+		[pallet_utility, Utility]
 	);
 }
 

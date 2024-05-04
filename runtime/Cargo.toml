@@ -37,6 +37,8 @@ pallet-grandpa = { git = "https://github.com/paritytech/polkadot-sdk.git", tag =
 pallet-sudo = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 pallet-transaction-payment = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
+pallet-utility = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
+pallet-session = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 
 # primitives
 sp-api = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
@@ -72,9 +74,8 @@ pallet-transaction-payment-rpc-runtime-api = { git = "https://github.com/parityt
 frame-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false, optional = true }
 frame-system-benchmarking = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false, optional = true }
 
-# Own pallets
+# Our pallets
 pallet-capsules = { path = "../pallets/capsules", default-features = false }
-
 pallet-app-registrar = { path = "../pallets/app-registrar", default-features = false }
 
 [build-dependencies]
@@ -101,7 +102,7 @@ std = [
 	"pallet-timestamp/std",
 	"pallet-transaction-payment-rpc-runtime-api/std",
 	"pallet-transaction-payment/std",
-
+	"pallet-utility/std",
 	"sp-api/std",
 	"sp-block-builder/std",
 	"sp-consensus-aura/std",
@@ -117,6 +118,7 @@ std = [
 	"sp-transaction-pool/std",
 	"sp-version/std",
 	"substrate-wasm-builder",
+	"pallet-session/std",
 ]
 
 runtime-benchmarks = [
@@ -147,6 +149,7 @@ try-runtime = [
 	"sp-runtime/try-runtime",
 	"pallet-capsules/try-runtime",
 	"pallet-app-registrar/try-runtime",
+	"pallet-session/try-runtime",
 ]
 
 experimental = ["pallet-aura/experimental"]
