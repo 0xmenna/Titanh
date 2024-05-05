@@ -1,4 +1,5 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
+use crate::CapsuleCursorsOf;
 use crate::{
 	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
 	CapsuleItems, Capsules, Config, Container, Error, Event, Follower, FollowersStatus,
@@ -267,20 +268,45 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		capsule_id: CapsuleIdFor<T>,
 	) -> DispatchResult {
-		let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
-		assert!(
-			capsule.status == Status::Live,
-			"The capsule must be live to transition to the first destroying stage"
-		);
-		// If the retention period has elapsed, anyone is allowed to destroy the capsule.
-		// This is to increase the level of decentralization.
-		// Else, only an owner is capable to start the deletion of a capsule
-		if capsule.ending_retention_block > <frame_system::Pallet<T>>::block_number() {
-			ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
-		}
-		capsule.status = Status::ItemsDeletion(Default::default());
+		// 	let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+		// 	assert!(
+		// 		capsule.status == Status::Live,
+		// 		"The capsule must be live to transition to the first destroying stage"
+		// 	);
+		// 	// If the retention period has elapsed, anyone is allowed to destroy the capsule.
+		// 	// This is to increase the level of decentralization.
+		// 	// Else, only an owner is capable to start the deletion of a capsule
+		// 	if capsule.ending_retention_block > <frame_system::Pallet<T>>::block_number() {
+		// 		ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
+		// 	}
+		// 	capsule.status = Status::ItemsDeletion(Default::default());
 
-		Ok(())
+		// 	Ok(())
+		// }
+
+		Capsules::<T>::try_mutate(capsule_id, |maybe_capsule_metadata| {
+			if let Some(capsule_metadata) = maybe_capsule_metadata {
+				assert!(
+					capsule_metadata.status == Status::Live,
+					"The capsule must be live to transition to the first destroying stage"
+				);
+
+				if capsule_metadata.ending_retention_block
+					> <frame_system::Pallet<T>>::block_number()
+				{
+					ensure!(
+						capsule_metadata.owners.binary_search(&who).is_ok(),
+						Error::<T>::BadOriginForOwnership
+					);
+				}
+
+				capsule_metadata.status = Status::ItemsDeletion(Default::default());
+
+				Ok(())
+			} else {
+				Err(Error::<T>::CapsuleAlreadyDestroyed.into())
+			}
+		})
 	}
 
 	pub fn destroy_ownership_approvals_from(
