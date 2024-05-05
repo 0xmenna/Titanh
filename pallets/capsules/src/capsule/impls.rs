@@ -99,10 +99,12 @@ impl<T: Config> Pallet<T> {
 		capsule.set_followers_status(followers_status.clone());
 
 		// Emit event
-    Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
-					capsule_id,
-					status: followers_status,
-				});
+		Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
+			capsule_id,
+			status: followers_status,
+		});
+
+		Ok(())
 	}
 
 	pub fn follow_capsule_from(who: T::AccountId, capsule_id: CapsuleIdFor<T>) -> DispatchResult {
@@ -312,7 +314,7 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		} else {
-			return Err(Error::<T>::IncorrectCapsuleStatus.into());
+			Err(Error::<T>::IncorrectCapsuleStatus.into())
 		}
 	}
 
@@ -351,7 +353,7 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		} else {
-			return Err(Error::<T>::IncorrectCapsuleStatus.into());
+			Err(Error::<T>::IncorrectCapsuleStatus.into())
 		}
 	}
 
@@ -387,7 +389,7 @@ impl<T: Config> Pallet<T> {
 
 			Ok(())
 		} else {
-			return Err(Error::<T>::IncorrectCapsuleStatus.into());
+			Err(Error::<T>::IncorrectCapsuleStatus.into())
 		}
 	}
 
@@ -442,6 +444,4 @@ impl<T: Config> Pallet<T> {
 
 		Ok(())
 	}
-
-	// Start destroying a capsule
 }
