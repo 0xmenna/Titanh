@@ -15,14 +15,13 @@ pub mod pallet {
 	// Import various useful types required by all FRAME pallets.
 	use super::*;
 	use frame_support::{
-		pallet,
 		pallet_prelude::{ValueQuery, *},
-		Blake2_128Concat, Twox64Concat,
+		Blake2_128Concat,
 	};
-	use frame_system::{pallet, pallet_prelude::*};
+	use frame_system::pallet_prelude::*;
 	use sp_runtime::{
 		traits::{AtLeast32BitUnsigned, Saturating},
-		AccountId32, DispatchError, FixedPointOperand,
+		FixedPointOperand,
 	};
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
@@ -55,8 +54,8 @@ pub mod pallet {
 	pub type CurrentAppId<T: Config> = StorageValue<_, T::AppId, ValueQuery>;
 
 	#[pallet::storage]
-	#[pallet::getter(fn app_permission)]
-	pub type AppPermission<T: Config> = StorageDoubleMap<
+	#[pallet::getter(fn app_permissions)]
+	pub type AppPermissions<T: Config> = StorageDoubleMap<
 		_,
 		Blake2_128Concat,
 		T::AppId,
@@ -77,9 +76,9 @@ pub mod pallet {
 
 	pub enum Event<T: Config> {
 		/// A user has successfully set a new value.
-		CreatedApp {
-			/// The new value set.
-			owner: T::AccountId,
+		AppCreated {
+			/// The account that created the app.
+			who: T::AccountId,
 			/// The account who set the new value.
 			app_id: T::AppId,
 		},
@@ -87,13 +86,9 @@ pub mod pallet {
 			app_id: T::AppId,
 			status: AppSubscriptionStatus,
 		},
-		AddedPermissionAccount {
+		NewAccountPermission {
 			app_id: T::AppId,
-			account_id: T::AccountId,
-		},
-		AddedAccount {
-			account_id: T::AccountId,
-			app_id: T::AppId,
+			who: T::AccountId,
 		},
 	}
 
@@ -107,8 +102,7 @@ pub mod pallet {
 	/// information.
 	#[pallet::error]
 	pub enum Error<T> {
-		/// The value retrieved was `None` as no value was previously set.
-		AppNotExist,
+		InvalidAppId,
 		NotOwner,
 		IncorrectStatus,
 		NotAllowed,
@@ -122,19 +116,18 @@ pub mod pallet {
 		pub fn create_app(origin: OriginFor<T>) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
-			// Increment the counter value by one
+			// Increment the app id by one
 			let mut index = CurrentAppId::<T>::get();
 			index.saturating_inc();
-			// Update the storage AppOwners
 
 			AppMetadata::<T>::insert(
 				index,
 				AppDetails { owner: who.clone(), status: Default::default() },
 			);
 
-			AppPermission::<T>::insert(index, who.clone(), true);
+			AppPermissions::<T>::insert(index, who.clone(), true);
 
-			Self::deposit_event(Event::<T>::CreatedApp { owner: who, app_id: index });
+			Self::deposit_event(Event::<T>::AppCreated { who, app_id: index });
 			// Return a successful `DispatchResult`
 			Ok(())
 		}
@@ -151,8 +144,6 @@ pub mod pallet {
 
 			AppMetadata::<T>::try_mutate(app_id, |maybe_app_metadata| {
 				if let Some(app_metadata) = maybe_app_metadata {
-					//let mut app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
-
 					ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
 
 					ensure!(
@@ -168,23 +159,24 @@ pub mod pallet {
 					});
 					Ok(())
 				} else {
-					Err(Error::<T>::AppNotExist.into())
+					Err(Error::<T>::InvalidAppId.into())
 				}
 				// Return a successful `DispatchResult`
 			})
 		}
+
 		// TODO: Aggiungi una lista di attesa, uno storage in cui aggiungi tutti quelli che vogliono iscriversi all'app
 		#[pallet::call_index(2)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
-		pub fn enable_account_permission(
+		pub fn enable_account_permissions(
 			origin: OriginFor<T>,
 			app_id: T::AppId,
-			account_to_add: T::AccountId,
+			permissions_reciever: T::AccountId,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 
-			let app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?;
+			let app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::InvalidAppId)?;
 
 			ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
 
@@ -192,34 +184,29 @@ pub mod pallet {
 				AppSubscriptionStatus::SelectedByOwner == app_metadata.status,
 				Error::<T>::IncorrectStatus
 			);
+			AppPermissions::<T>::insert(app_id, &permissions_reciever, true);
 
-			AppPermission::<T>::insert(app_id, &account_to_add, true);
-
-			Self::deposit_event(Event::<T>::AddedPermissionAccount {
+			Self::deposit_event(Event::<T>::NewAccountPermission {
 				app_id,
-				account_id: account_to_add,
+				who: permissions_reciever,
 			});
 			Ok(())
 		}
 
 		#[pallet::call_index(3)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
-		pub fn subscribe_to_app_permission(
-			origin: OriginFor<T>,
-			app_id: T::AppId,
-		) -> DispatchResult {
+		pub fn subscribe_to_app(origin: OriginFor<T>, app_id: T::AppId) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 			// Check that the status is set to Anyone.
 			ensure!(
 				AppSubscriptionStatus::Anyone
-					== AppMetadata::<T>::get(app_id).ok_or(Error::<T>::AppNotExist)?.status,
+					== AppMetadata::<T>::get(app_id).ok_or(Error::<T>::InvalidAppId)?.status,
 				Error::<T>::IncorrectStatus
 			);
-			// Insert the accountId into the storage AppPermission
-			AppPermission::<T>::insert(app_id, &who, true);
+			AppPermissions::<T>::insert(app_id, &who, true);
 
-			Self::deposit_event(Event::<T>::AddedAccount { account_id: who, app_id });
+			Self::deposit_event(Event::<T>::NewAccountPermission { app_id, who });
 			Ok(())
 		}
 	}
