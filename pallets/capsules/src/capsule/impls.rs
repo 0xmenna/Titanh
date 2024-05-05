@@ -1,4 +1,5 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
+use crate::DeletionCompletion;
 use crate::{
 	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
 	CapsuleItems, Capsules, Config, Container, Error, Event, Follower, FollowersStatus,
@@ -95,7 +96,7 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
 		Self::ensure_capsule_liveness(&capsule)?;
-		capsule.followers_status = followers_status.clone();
+		capsule.set_followers_status(followers_status.clone());
 
 		// Emit event
 		Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
@@ -182,17 +183,22 @@ impl<T: Config> Pallet<T> {
 				== Follower::Basic,
 			Error::<T>::AlreadyFollower
 		);
-		CapsuleFollowers::<T>::insert(
-			&capsule_id,
-			&follower,
-			Follower::WaitingApprovalForPrivileged,
-		);
+
+		let (follower_type, event) = if follower == who {
+			(Follower::Privileged, Event::<T>::NewPrivilegedFollower { capsule_id, who })
+		} else {
+			(
+				Follower::WaitingApprovalForPrivileged,
+				Event::<T>::PrivilegedFollowerWaitingToApprove {
+					capsule_id,
+					who: follower.clone(),
+				},
+			)
+		};
+		CapsuleFollowers::<T>::insert(&capsule_id, &follower, follower_type);
 
 		// Emit event
-		Self::deposit_event(Event::<T>::PrivilegedFollowerWaitingToApprove {
-			capsule_id,
-			who: follower,
-		});
+		Self::deposit_event(event);
 
 		Ok(())
 	}
@@ -212,7 +218,7 @@ impl<T: Config> Pallet<T> {
 			CapsuleFollowers::<T>::insert(&capsule_id, &who, Follower::Privileged);
 
 			// Emit event
-			Self::deposit_event(Event::<T>::PrivilegedFollowApproved { capsule_id, who });
+			Self::deposit_event(Event::<T>::NewPrivilegedFollower { capsule_id, who });
 
 			Ok(())
 		} else {
@@ -263,7 +269,9 @@ impl<T: Config> Pallet<T> {
 		if capsule.ending_retention_block > <frame_system::Pallet<T>>::block_number() {
 			ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
 		}
-		capsule.status = Status::ItemsDeletion(Default::default());
+		capsule.set_status(Status::ItemsDeletion(Default::default()));
+
+		Self::deposit_event(Event::<T>::CapsuleStartedDestroying { capsule_id });
 
 		Ok(())
 	}
@@ -289,9 +297,13 @@ impl<T: Config> Pallet<T> {
 		let removal_completion =
 			Self::modify_cursors_for_approvals(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
 
-		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
-				deletion_completition.ownership_approvals = true;
+				capsule.set_status(Status::ItemsDeletion(DeletionCompletion {
+					ownership_approvals: true,
+					followers: deletion_completition.followers,
+					container_keys: deletion_completition.container_keys,
+				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -324,9 +336,13 @@ impl<T: Config> Pallet<T> {
 		let removal_completion =
 			Self::modify_cursors_for_followers(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
 
-		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
-				deletion_completition.followers = true;
+				capsule.set_status(Status::ItemsDeletion(DeletionCompletion {
+					ownership_approvals: deletion_completition.ownership_approvals,
+					followers: true,
+					container_keys: deletion_completition.container_keys,
+				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -355,9 +371,13 @@ impl<T: Config> Pallet<T> {
 			Container::<T>::remove(container_id, key);
 		}
 
-		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
-				deletion_completition.container_keys = true;
+				capsule.set_status(Status::ItemsDeletion(DeletionCompletion {
+					ownership_approvals: deletion_completition.ownership_approvals,
+					followers: deletion_completition.followers,
+					container_keys: true,
+				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
 			}
 
@@ -402,7 +422,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if removal_completion {
-			capsule.status = Status::FinalDeletion
+			capsule.set_status(Status::FinalDeletion);
 		}
 
 		Self::deposit_event(Event::<T>::CapsuleContainersDeleted {

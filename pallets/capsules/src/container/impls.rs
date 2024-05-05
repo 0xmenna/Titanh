@@ -140,7 +140,7 @@ impl<T: Config> Pallet<T> {
 		let mut container =
 			ContainerDetails::<T>::get(&container_id).ok_or(Error::<T>::InvalidContainerId)?;
 		ensure!(container.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
-		container.status = status.clone();
+		container.set_status(status.clone());
 
 		Self::deposit_event(Event::<T>::ContainerStatusChanged { container_id, status });
 

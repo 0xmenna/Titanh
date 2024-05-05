@@ -38,6 +38,16 @@ where
 	pub app_data: AppData<AppId, S>,
 }
 
+impl<AccountId, MaxAccounts, S, AppId> ContainerMetadata<AccountId, MaxAccounts, S, AppId>
+where
+	MaxAccounts: Get<u32>,
+	S: Get<u32>,
+{
+	pub fn set_status(&mut self, status: ContainerStatus) {
+		self.status = status;
+	}
+}
+
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
 pub enum ContainerStatus {
 	#[default]
