@@ -304,7 +304,7 @@ impl<T: Config> Pallet<T> {
 
 				Ok(())
 			} else {
-				Err(Error::<T>::CapsuleAlreadyDestroyed.into())
+				Err(Error::<T>::InvalidCapsuleId.into())
 			}
 		})
 	}

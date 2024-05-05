@@ -148,7 +148,7 @@ impl<T: Config> Pallet<T> {
 				Self::deposit_event(Event::<T>::ContainerStatusChanged { container_id, status });
 				Ok(())
 			} else {
-				Err(Error::<T>::IncorrectContainerStatus.into())
+				Err(Error::<T>::InvalidContainerId.into())
 			}
 		})
 	}
