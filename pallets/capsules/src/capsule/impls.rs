@@ -1,9 +1,8 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
-use crate::DeletionCompletion;
 use crate::{
 	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
-	CapsuleItems, Capsules, Config, Container, Error, Event, Follower, FollowersStatus,
-	IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
+	CapsuleItems, Capsules, Config, Container, DeletionCompletion, Error, Event, Follower,
+	FollowersStatus, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
@@ -52,6 +51,8 @@ impl<T: Config> Pallet<T> {
 		// Try to add the owner to capsule owners, if it does not exceeds the vector bounds
 		Self::try_add_owner(&who, &mut capsule.owners)?;
 
+		Capsules::<T>::insert(&capsule_id, capsule);
+
 		// Emit Event
 		Self::deposit_event(Event::<T>::OwnershipApproved {
 			id: capsule_id,
@@ -97,6 +98,7 @@ impl<T: Config> Pallet<T> {
 		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
 		Self::ensure_capsule_liveness(&capsule)?;
 		capsule.set_followers_status(followers_status.clone());
+		Capsules::<T>::insert(&capsule_id, capsule);
 
 		// Emit event
 		Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
@@ -141,6 +143,8 @@ impl<T: Config> Pallet<T> {
 		capsule.cid = cid;
 		capsule.size = size;
 
+		Capsules::<T>::insert(&capsule_id, capsule);
+
 		Self::deposit_event(Event::<T>::CapsuleContentChanged { capsule_id, cid, size });
 
 		Ok(())
@@ -155,6 +159,8 @@ impl<T: Config> Pallet<T> {
 		Self::ensure_capsule_liveness(&capsule)?;
 		ensure!(at_block > capsule.ending_retention_block, Error::<T>::BadBlockNumber);
 		capsule.ending_retention_block = at_block;
+
+		Capsules::<T>::insert(&capsule_id, capsule);
 
 		Self::deposit_event(Event::<T>::CapsuleEndingRetentionBlockExtended {
 			capsule_id,
@@ -271,6 +277,8 @@ impl<T: Config> Pallet<T> {
 		}
 		capsule.set_status(Status::ItemsDeletion(Default::default()));
 
+		Capsules::<T>::insert(&capsule_id, capsule);
+
 		Self::deposit_event(Event::<T>::CapsuleStartedDestroying { capsule_id });
 
 		Ok(())
@@ -296,6 +304,7 @@ impl<T: Config> Pallet<T> {
 
 		let removal_completion =
 			Self::modify_cursors_for_approvals(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
+		CapsuleClearCursors::<T>::set(&capsule_id, maybe_cursors);
 
 		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
@@ -305,6 +314,7 @@ impl<T: Config> Pallet<T> {
 					container_keys: deletion_completition.container_keys,
 				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+				Capsules::<T>::insert(&capsule_id, capsule);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
 				capsule_id,
@@ -335,6 +345,7 @@ impl<T: Config> Pallet<T> {
 
 		let removal_completion =
 			Self::modify_cursors_for_followers(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
+		CapsuleClearCursors::<T>::set(&capsule_id, maybe_cursors);
 
 		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
@@ -344,6 +355,7 @@ impl<T: Config> Pallet<T> {
 					container_keys: deletion_completition.container_keys,
 				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+				Capsules::<T>::insert(&capsule_id, capsule);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
 				capsule_id,
@@ -379,6 +391,7 @@ impl<T: Config> Pallet<T> {
 					container_keys: true,
 				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+				Capsules::<T>::insert(&capsule_id, capsule);
 			}
 
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -420,9 +433,11 @@ impl<T: Config> Pallet<T> {
 			maybe_cursors.as_mut(),
 			r.maybe_cursor,
 		);
+		CapsuleClearCursors::<T>::set(&capsule_id, maybe_cursors);
 
 		if removal_completion {
 			capsule.set_status(Status::FinalDeletion);
+			Capsules::<T>::insert(&capsule_id, capsule);
 		}
 
 		Self::deposit_event(Event::<T>::CapsuleContainersDeleted {

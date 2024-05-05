@@ -66,6 +66,7 @@ impl<T: Config> Pallet<T> {
 		Self::try_approve_ownership(&who, &container_id, Approval::Container)?;
 		// Try to add the owner to container owners, if it does not exceeds the vector bounds
 		Self::try_add_owner(&who, &mut container.owners)?;
+		ContainerDetails::<T>::insert(&container_id, container);
 
 		// Emit Event
 		Self::deposit_event(Event::<T>::OwnershipApproved {
@@ -122,6 +123,7 @@ impl<T: Config> Pallet<T> {
 		// Attach the capsule to the container using `key`
 		Container::<T>::insert(&container_id, &key, capsule_id.clone());
 		container.size.saturating_inc();
+		ContainerDetails::<T>::insert(&container_id, container);
 
 		Self::deposit_event(Event::<T>::CapsuleAttached {
 			container_id,
@@ -137,10 +139,11 @@ impl<T: Config> Pallet<T> {
 		container_id: ContainerIdOf<T>,
 		status: ContainerStatus,
 	) -> DispatchResult {
-    let mut container =
+		let mut container =
 			ContainerDetails::<T>::get(&container_id).ok_or(Error::<T>::InvalidContainerId)?;
 		ensure!(container.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
 		container.set_status(status.clone());
+		ContainerDetails::<T>::insert(&container_id, container);
 
 		Self::deposit_event(Event::<T>::ContainerStatusChanged { container_id, status });
 
@@ -166,6 +169,7 @@ impl<T: Config> Pallet<T> {
 		// Detach the capsule from the container using `key`
 		Container::<T>::remove(&container_id, &key);
 		container.size.saturating_dec();
+		ContainerDetails::<T>::insert(&container_id, container);
 
 		Self::deposit_event(Event::<T>::CapsuleDetached {
 			container_id,
