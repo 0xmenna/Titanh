@@ -23,6 +23,7 @@ futures = { version = "0.3.30", features = ["thread-pool"] }
 serde_json = { version = "1.0.114", default-features = true }
 jsonrpsee = { version = "0.22", features = ["server"] }
 log = "0.4.17"
+primitives = { path = "../primitives" }
 
 # substrate client
 sc-cli = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0" }

@@ -1,5 +1,7 @@
-use node_template_runtime::{AccountId, RuntimeGenesisConfig, Signature, WASM_BINARY};
+use node_template_runtime::{AccountId, RuntimeGenesisConfig, SessionKeys, Signature, WASM_BINARY};
+use primitives::{ADDRESSES_ENCODING, TOKEN_DECIMALS};
 use sc_service::ChainType;
+use serde_json::{Number, Value};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_consensus_grandpa::AuthorityId as GrandpaId;
 use sp_core::{sr25519, Pair, Public};
@@ -29,8 +31,27 @@ where
 }
 
 /// Generate an Aura authority key.
-pub fn authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-	(get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+pub fn authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
+	(
+		get_account_id_from_seed::<sr25519::Public>(s),
+		get_from_seed::<AuraId>(s),
+		get_from_seed::<GrandpaId>(s),
+	)
+}
+
+fn system_properties(token_symbol: String) -> serde_json::map::Map<String, Value> {
+	[
+		("tokenSymbol".to_string(), Value::String(token_symbol)),
+		("tokenDecimals".to_string(), Value::Number(Number::from(TOKEN_DECIMALS))),
+		("ss58Format".to_string(), Value::Number(Number::from(ADDRESSES_ENCODING))),
+	]
+	.iter()
+	.cloned()
+	.collect()
+}
+
+fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
+	SessionKeys { aura, grandpa }
 }
 
 pub fn development_config() -> Result<ChainSpec, String> {
@@ -41,6 +62,7 @@ pub fn development_config() -> Result<ChainSpec, String> {
 	.with_name("Development")
 	.with_id("dev")
 	.with_chain_type(ChainType::Development)
+	.with_properties(system_properties(String::from("DEV")))
 	.with_genesis_config_patch(testnet_genesis(
 		// Initial PoA authorities
 		vec![authority_keys_from_seed("Alice")],
@@ -66,6 +88,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 	.with_name("Local Testnet")
 	.with_id("local_testnet")
 	.with_chain_type(ChainType::Local)
+	.with_properties(system_properties(String::from("LOCAL")))
 	.with_genesis_config_patch(testnet_genesis(
 		// Initial PoA authorities
 		vec![authority_keys_from_seed("Alice"), authority_keys_from_seed("Bob")],
@@ -93,7 +116,7 @@ pub fn local_testnet_config() -> Result<ChainSpec, String> {
 
 /// Configure initial storage state for FRAME modules.
 fn testnet_genesis(
-	initial_authorities: Vec<(AuraId, GrandpaId)>,
+	initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
 	root_key: AccountId,
 	endowed_accounts: Vec<AccountId>,
 	_enable_println: bool,
@@ -104,14 +127,26 @@ fn testnet_genesis(
 			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
 		"aura": {
-			"authorities": initial_authorities.iter().map(|x| (x.0.clone())).collect::<Vec<_>>(),
+			"authorities": initial_authorities.iter().map(|x| (x.1.clone())).collect::<Vec<_>>(),
 		},
 		"grandpa": {
-			"authorities": initial_authorities.iter().map(|x| (x.1.clone(), 1)).collect::<Vec<_>>(),
+			"authorities": initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect::<Vec<_>>(),
 		},
 		"sudo": {
 			// Assign network admin rights.
 			"key": Some(root_key),
 		},
+		"session": {
+			"keys": initial_authorities
+				.iter()
+				.map(|x| {
+					(
+						x.0.clone(),
+						x.0.clone(),
+						session_keys(x.1.clone(), x.2.clone()),
+					)
+				})
+				.collect::<Vec<_>>(),
+		}
 	})
 }

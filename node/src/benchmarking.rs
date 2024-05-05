@@ -5,7 +5,8 @@
 use crate::service::FullClient;
 
 use node_template_runtime as runtime;
-use runtime::{AccountId, Balance, BalancesCall, SystemCall};
+use primitives::{AccountId, Balance};
+use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;
 use sc_client_api::BlockBackend;
 use sp_core::{Encode, Pair};
@@ -142,7 +143,7 @@ pub fn create_benchmark_extrinsic(
 	runtime::UncheckedExtrinsic::new_signed(
 		call,
 		sp_runtime::AccountId32::from(sender.public()).into(),
-		runtime::Signature::Sr25519(signature),
+		primitives::Signature::Sr25519(signature),
 		extra,
 	)
 }

@@ -5,7 +5,6 @@ use codec::{Codec, Decode, Encode, MaxEncodedLen};
 pub use frame_support::traits::Time;
 use frame_support::Parameter;
 pub use frame_system::pallet_prelude::BlockNumberFor;
-use scale_info::prelude::string::String;
 use scale_info::TypeInfo;
 use sp_core::Get;
 use sp_runtime::{
