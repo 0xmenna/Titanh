@@ -278,6 +278,7 @@ pub mod pallet {
 		BadKey,
 		/// Invalid number of blocks for the retention period
 		BadRetentionPeriod,
+
 	}
 
 	#[pallet::call]

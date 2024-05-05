@@ -99,12 +99,10 @@ impl<T: Config> Pallet<T> {
 		capsule.set_followers_status(followers_status.clone());
 
 		// Emit event
-		Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
-			capsule_id,
-			status: followers_status,
-		});
-
-		Ok(())
+    Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
+					capsule_id,
+					status: followers_status,
+				});
 	}
 
 	pub fn follow_capsule_from(who: T::AccountId, capsule_id: CapsuleIdFor<T>) -> DispatchResult {

@@ -137,7 +137,7 @@ impl<T: Config> Pallet<T> {
 		container_id: ContainerIdOf<T>,
 		status: ContainerStatus,
 	) -> DispatchResult {
-		let mut container =
+    let mut container =
 			ContainerDetails::<T>::get(&container_id).ok_or(Error::<T>::InvalidContainerId)?;
 		ensure!(container.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
 		container.set_status(status.clone());
