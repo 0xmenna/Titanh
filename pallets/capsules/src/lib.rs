@@ -276,6 +276,8 @@ pub mod pallet {
 		BadRetentionPeriod,
 		/// Capsule Destroyed
 		CapsuleAlreadyDestroyed,
+		/// Invalid container status
+		IncorrectContainerStatus,
 	}
 
 	#[pallet::call]

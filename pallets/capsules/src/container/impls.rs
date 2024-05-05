@@ -137,14 +137,20 @@ impl<T: Config> Pallet<T> {
 		container_id: ContainerIdOf<T>,
 		status: ContainerStatus,
 	) -> DispatchResult {
-		let mut container =
-			ContainerDetails::<T>::get(&container_id).ok_or(Error::<T>::InvalidContainerId)?;
-		ensure!(container.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
-		container.status = status.clone();
+		ContainerDetails::<T>::try_mutate(container_id, |maybe_container_details| {
+			if let Some(container_details) = maybe_container_details {
+				ensure!(
+					container_details.owners.binary_search(&who).is_ok(),
+					Error::<T>::BadOriginForOwnership
+				);
+				container_details.status = status.clone();
 
-		Self::deposit_event(Event::<T>::ContainerStatusChanged { container_id, status });
-
-		Ok(())
+				Self::deposit_event(Event::<T>::ContainerStatusChanged { container_id, status });
+				Ok(())
+			} else {
+				Err(Error::<T>::IncorrectContainerStatus.into())
+			}
+		})
 	}
 
 	/// Detach a capsule identified by `key` from a container.
