@@ -1,5 +1,5 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
-use crate::CapsuleCursorsOf;
+use crate::DeletionCompletion;
 use crate::{
 	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
 	CapsuleItems, Capsules, Config, Container, Error, Event, Follower, FollowersStatus,
@@ -94,27 +94,15 @@ impl<T: Config> Pallet<T> {
 		capsule_id: CapsuleIdFor<T>,
 		followers_status: FollowersStatus,
 	) -> DispatchResult {
-		//Change follower status
-		Capsules::<T>::try_mutate(&capsule_id, |maybe_capsule_id| {
-			if let Some(capsule) = maybe_capsule_id {
-				ensure!(
-					capsule.owners.binary_search(&who).is_ok(),
-					Error::<T>::BadOriginForOwnership
-				);
-				ensure!(capsule.status == Status::Live, Error::<T>::IncorrectCapsuleStatus);
-				capsule.followers_status = followers_status.clone();
-				Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
+		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
+		Self::ensure_capsule_liveness(&capsule)?;
+		capsule.set_followers_status(followers_status.clone());
+
+		// Emit event
+    Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
 					capsule_id,
 					status: followers_status,
 				});
-
-				Ok(())
-			} else {
-				Err(Error::<T>::BadFollowersStatus.into())
-			}
-		})
-
-		// Emit event
 	}
 
 	pub fn follow_capsule_from(who: T::AccountId, capsule_id: CapsuleIdFor<T>) -> DispatchResult {
@@ -194,21 +182,21 @@ impl<T: Config> Pallet<T> {
 			Error::<T>::AlreadyFollower
 		);
 
-		if (follower == who) {
-			CapsuleFollowers::<T>::insert(&capsule_id, &follower, Follower::Privileged);
+		let (follower_type, event) = if follower == who {
+			(Follower::Privileged, Event::<T>::NewPrivilegedFollower { capsule_id, who })
 		} else {
-			CapsuleFollowers::<T>::insert(
-				&capsule_id,
-				&follower,
+			(
 				Follower::WaitingApprovalForPrivileged,
-			);
-		}
+				Event::<T>::PrivilegedFollowerWaitingToApprove {
+					capsule_id,
+					who: follower.clone(),
+				},
+			)
+		};
+		CapsuleFollowers::<T>::insert(&capsule_id, &follower, follower_type);
 
 		// Emit event
-		Self::deposit_event(Event::<T>::PrivilegedFollowerWaitingToApprove {
-			capsule_id,
-			who: follower,
-		});
+		Self::deposit_event(event);
 
 		Ok(())
 	}
@@ -228,7 +216,7 @@ impl<T: Config> Pallet<T> {
 			CapsuleFollowers::<T>::insert(&capsule_id, &who, Follower::Privileged);
 
 			// Emit event
-			Self::deposit_event(Event::<T>::PrivilegedFollowApproved { capsule_id, who });
+			Self::deposit_event(Event::<T>::NewPrivilegedFollower { capsule_id, who });
 
 			Ok(())
 		} else {
@@ -268,45 +256,22 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		capsule_id: CapsuleIdFor<T>,
 	) -> DispatchResult {
-		// 	let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
-		// 	assert!(
-		// 		capsule.status == Status::Live,
-		// 		"The capsule must be live to transition to the first destroying stage"
-		// 	);
-		// 	// If the retention period has elapsed, anyone is allowed to destroy the capsule.
-		// 	// This is to increase the level of decentralization.
-		// 	// Else, only an owner is capable to start the deletion of a capsule
-		// 	if capsule.ending_retention_block > <frame_system::Pallet<T>>::block_number() {
-		// 		ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
-		// 	}
-		// 	capsule.status = Status::ItemsDeletion(Default::default());
+		let mut capsule = Capsules::<T>::get(&capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
+		assert!(
+			capsule.status == Status::Live,
+			"The capsule must be live to transition to the first destroying stage"
+		);
+		// If the retention period has elapsed, anyone is allowed to destroy the capsule.
+		// This is to increase the level of decentralization.
+		// Else, only an owner is capable to start the deletion of a capsule
+		if capsule.ending_retention_block > <frame_system::Pallet<T>>::block_number() {
+			ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
+		}
+		capsule.set_status(Status::ItemsDeletion(Default::default()));
 
-		// 	Ok(())
-		// }
+		Self::deposit_event(Event::<T>::CapsuleStartedDestroying { capsule_id });
 
-		Capsules::<T>::try_mutate(capsule_id, |maybe_capsule_metadata| {
-			if let Some(capsule_metadata) = maybe_capsule_metadata {
-				assert!(
-					capsule_metadata.status == Status::Live,
-					"The capsule must be live to transition to the first destroying stage"
-				);
-
-				if capsule_metadata.ending_retention_block
-					> <frame_system::Pallet<T>>::block_number()
-				{
-					ensure!(
-						capsule_metadata.owners.binary_search(&who).is_ok(),
-						Error::<T>::BadOriginForOwnership
-					);
-				}
-
-				capsule_metadata.status = Status::ItemsDeletion(Default::default());
-
-				Ok(())
-			} else {
-				Err(Error::<T>::InvalidCapsuleId.into())
-			}
-		})
+		Ok(())
 	}
 
 	pub fn destroy_ownership_approvals_from(
@@ -330,9 +295,13 @@ impl<T: Config> Pallet<T> {
 		let removal_completion =
 			Self::modify_cursors_for_approvals(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
 
-		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
-				deletion_completition.ownership_approvals = true;
+				capsule.set_status(Status::ItemsDeletion(DeletionCompletion {
+					ownership_approvals: true,
+					followers: deletion_completition.followers,
+					container_keys: deletion_completition.container_keys,
+				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -365,9 +334,13 @@ impl<T: Config> Pallet<T> {
 		let removal_completion =
 			Self::modify_cursors_for_followers(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
 
-		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
-				deletion_completition.followers = true;
+				capsule.set_status(Status::ItemsDeletion(DeletionCompletion {
+					ownership_approvals: deletion_completition.ownership_approvals,
+					followers: true,
+					container_keys: deletion_completition.container_keys,
+				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -396,9 +369,13 @@ impl<T: Config> Pallet<T> {
 			Container::<T>::remove(container_id, key);
 		}
 
-		if let Status::ItemsDeletion(mut deletion_completition) = capsule.status.clone() {
+		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
-				deletion_completition.container_keys = true;
+				capsule.set_status(Status::ItemsDeletion(DeletionCompletion {
+					ownership_approvals: deletion_completition.ownership_approvals,
+					followers: deletion_completition.followers,
+					container_keys: true,
+				}));
 				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
 			}
 
@@ -443,7 +420,7 @@ impl<T: Config> Pallet<T> {
 		);
 
 		if removal_completion {
-			capsule.status = Status::FinalDeletion
+			capsule.set_status(Status::FinalDeletion);
 		}
 
 		Self::deposit_event(Event::<T>::CapsuleContainersDeleted {

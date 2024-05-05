@@ -44,6 +44,21 @@ where
 	pub app_data: AppData<AppId, S>,
 }
 
+impl<Cid, BlockNumber, AccountId, MaxAccounts, S, AppId>
+	CapsuleMetadata<Cid, BlockNumber, AccountId, MaxAccounts, S, AppId>
+where
+	MaxAccounts: Get<u32>,
+	S: Get<u32>,
+{
+	pub fn set_status(&mut self, status: Status) {
+		self.status = status;
+	}
+
+	pub fn set_followers_status(&mut self, followers_status: FollowersStatus) {
+		self.followers_status = followers_status;
+	}
+}
+
 #[derive(Encode, Decode, Clone, Eq, Default, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
 pub enum Status {
 	#[default]

@@ -192,9 +192,13 @@ pub mod pallet {
 			who: T::AccountId,
 		},
 		/// A waiting approval has been approved
-		PrivilegedFollowApproved {
+		NewPrivilegedFollower {
 			capsule_id: CapsuleIdFor<T>,
 			who: T::AccountId,
+		},
+		/// Started the deletion of a capsule
+		CapsuleStartedDestroying {
+			capsule_id: CapsuleIdFor<T>,
 		},
 		/// Capsule items have been deleted
 		CapsuleItemsDeleted {
