@@ -10,7 +10,7 @@ members = [
     "node",
     "pallets/capsules", "pallets/common-types", "pallets/app-registrar",
     "runtime",
-	"store-subscriber",
+	"store-subscriber", "primitives",
 ]
 resolver = "2"
 [profile.release]

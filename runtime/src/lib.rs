@@ -3,22 +3,24 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+mod validator_manager;
+
 use pallet_grandpa::AuthorityId as GrandpaId;
+pub use primitives::*;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::{
 	create_runtime_str, generic, impl_opaque_keys,
-	traits::{BlakeTwo256, Block as BlockT, IdentifyAccount, NumberFor, One, Verify},
+	traits::{BlakeTwo256, Block as BlockT, NumberFor, One, OpaqueKeys},
 	transaction_validity::{TransactionSource, TransactionValidity},
-	ApplyExtrinsicResult, MultiSignature,
+	ApplyExtrinsicResult,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-use frame_support::genesis_builder_helper::{build_config, create_default_config};
 pub use frame_support::{
 	construct_runtime, derive_impl, parameter_types,
 	traits::{
@@ -33,54 +35,24 @@ pub use frame_support::{
 	},
 	StorageValue,
 };
+use frame_support::{
+	genesis_builder_helper::{build_config, create_default_config},
+	weights::constants::WEIGHT_REF_TIME_PER_MILLIS,
+};
 pub use frame_system::Call as SystemCall;
 pub use pallet_balances::Call as BalancesCall;
+use pallet_session::historical as session_historical;
 pub use pallet_timestamp::Call as TimestampCall;
 use pallet_transaction_payment::{ConstFeeMultiplier, CurrencyAdapter, Multiplier};
+
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
 pub use sp_runtime::{Perbill, Permill};
 
-/// An index to a block.
-pub type BlockNumber = u32;
-
-/// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
-
-/// Some way of identifying an account on the chain. We intentionally make it equivalent
-/// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-/// Balance of an account.
-pub type Balance = u128;
-
-/// Index of a transaction in the chain.
-pub type Nonce = u32;
-
-/// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-
-/// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
-/// the specifics of the runtime. They can then be made to be agnostic over specific formats
-/// of data like extrinsics, allowing for them to continue syncing the network through upgrades
-/// to even the core data structures.
-pub mod opaque {
-	use super::*;
-
-	pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
-
-	/// Opaque block header type.
-	pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
-	/// Opaque block type.
-	pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-	/// Opaque block identifier type.
-	pub type BlockId = generic::BlockId<Block>;
-
-	impl_opaque_keys! {
-		pub struct SessionKeys {
-			pub aura: Aura,
-			pub grandpa: Grandpa,
-		}
+impl_opaque_keys! {
+	pub struct SessionKeys {
+		pub aura: Aura,
+		pub grandpa: Grandpa,
 	}
 }
 
@@ -103,43 +75,38 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 	state_version: 1,
 };
 
-/// This determines the average expected block time that we are targeting.
-/// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.
-/// `SLOT_DURATION` is picked up by `pallet_timestamp` which is in turn picked
-/// up by `pallet_aura` to implement `fn slot_duration()`.
-///
-/// Change this to adjust the block time.
-pub const MILLISECS_PER_BLOCK: u64 = 3000;
-
-// NOTE: Currently it is not possible to change the slot duration after the chain has started.
-//       Attempting to do so will brick block production.
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
 	NativeVersion { runtime_version: VERSION, can_author_with: Default::default() }
 }
 
+pub const MILLI: Balance = TOKEN / 1000;
+pub const MICRO: Balance = MILLI / 1000;
+pub const NANO: Balance = MICRO / 1000;
+pub const PICO: Balance = NANO / 1000;
+
+// The whole process for a single block should take 1s, of which 1.2s is for creation,
+// 600ms for propagation and 1.2ms for validation. Hence the block weight should be within 400ms.
+pub const MAX_BLOCK_WEIGHT: Weight =
+	Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(1200), 0);
+
+// The storage deposit is roughly 1 TOKEN per 1kB -- this is the legacy value, used for pallet Multisig.
+pub const LEGACY_DEPOSIT_PER_BYTE: Balance = MILLI;
+
 const NORMAL_DISPATCH_RATIO: Perbill = Perbill::from_percent(75);
 
 parameter_types! {
 	pub const BlockHashCount: BlockNumber = 2400;
 	pub const Version: RuntimeVersion = VERSION;
-	/// We allow for 1 second of compute with a 3 second average block time.
 	pub BlockWeights: frame_system::limits::BlockWeights =
 		frame_system::limits::BlockWeights::with_sensible_defaults(
-			Weight::from_parts(1u64 * WEIGHT_REF_TIME_PER_SECOND, u64::MAX),
+			MAX_BLOCK_WEIGHT.set_proof_size(u64::MAX),
 			NORMAL_DISPATCH_RATIO,
 		);
 	pub BlockLength: frame_system::limits::BlockLength = frame_system::limits::BlockLength
-		::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
-	pub const SS58Prefix: u8 = 42;
+		::max_with_normal_ratio(MAX_BLOCK_SIZE, NORMAL_DISPATCH_RATIO);
+	pub const SS58Prefix: u8 = ADDRESSES_ENCODING;
 }
 
 /// The default types are being injected by [`derive_impl`](`frame_support::derive_impl`) from
@@ -179,6 +146,24 @@ impl pallet_utility::Config for Runtime {
 	type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	// One storage item; key size is 32+32; value is size 4+4+16+32 bytes = 56 bytes.
+	pub const DepositBase: Balance = 120 * LEGACY_DEPOSIT_PER_BYTE;
+	// Additional storage item size of 32 bytes.
+	pub const DepositFactor: Balance = 32 * LEGACY_DEPOSIT_PER_BYTE;
+	pub const MaxSignatories: u16 = 100;
+}
+
+impl pallet_multisig::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type RuntimeCall = RuntimeCall;
+	type Currency = Balances;
+	type DepositBase = DepositBase;
+	type DepositFactor = DepositFactor;
+	type MaxSignatories = MaxSignatories;
+	type WeightInfo = pallet_multisig::weights::SubstrateWeight<Runtime>;
+}
+
 impl pallet_aura::Config for Runtime {
 	type AuthorityId = AuraId;
 	type DisabledValidators = ();
@@ -199,6 +184,48 @@ impl pallet_grandpa::Config for Runtime {
 
 	type KeyOwnerProof = sp_core::Void;
 	type EquivocationReportSystem = ();
+}
+
+impl pallet_authorship::Config for Runtime {
+	type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+	type EventHandler = ();
+}
+
+parameter_types! {
+	pub const Offset: u32 = 0;
+	pub const SessionPeriod: u32 = DEFAULT_SESSION_PERIOD;
+}
+
+/// Special `ValidatorIdOf` implementation that is just returning the input as result.
+pub struct ValidatorIdOf;
+impl sp_runtime::traits::Convert<AccountId, Option<AccountId>> for ValidatorIdOf {
+	fn convert(a: AccountId) -> Option<AccountId> {
+		Some(a)
+	}
+}
+
+impl pallet_session::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type ValidatorId = AccountId;
+	type ValidatorIdOf = ValidatorIdOf;
+	type ShouldEndSession = pallet_session::PeriodicSessions<SessionPeriod, Offset>;
+	type NextSessionRotation = pallet_session::PeriodicSessions<SessionPeriod, Offset>;
+	type SessionManager = pallet_session::historical::NoteHistoricalRoot<Self, ValidatorManager>;
+	type SessionHandler = <SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+	type Keys = SessionKeys;
+	type WeightInfo = pallet_session::weights::SubstrateWeight<Runtime>;
+}
+
+pub struct FullIdentificationOf;
+impl sp_runtime::traits::Convert<AccountId, Option<()>> for FullIdentificationOf {
+	fn convert(_: AccountId) -> Option<()> {
+		Some(Default::default())
+	}
+}
+
+impl pallet_session::historical::Config for Runtime {
+	type FullIdentification = ();
+	type FullIdentificationOf = FullIdentificationOf;
 }
 
 impl pallet_timestamp::Config for Runtime {
@@ -241,6 +268,11 @@ impl pallet_transaction_payment::Config for Runtime {
 	type WeightToFee = IdentityFee<Balance>;
 	type LengthToFee = IdentityFee<Balance>;
 	type FeeMultiplierUpdate = ConstFeeMultiplier<FeeMultiplier>;
+}
+
+impl validator_manager::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type PrivilegedOrigin = frame_system::EnsureRoot<AccountId>;
 }
 
 impl pallet_sudo::Config for Runtime {
@@ -296,27 +328,42 @@ mod runtime {
 	pub type Utility = pallet_utility;
 
 	#[runtime::pallet_index(2)]
-	pub type Timestamp = pallet_timestamp;
+	pub type Multisig = pallet_multisig;
 
 	#[runtime::pallet_index(3)]
-	pub type Aura = pallet_aura;
+	pub type Timestamp = pallet_timestamp;
 
 	#[runtime::pallet_index(4)]
-	pub type Grandpa = pallet_grandpa;
+	pub type Aura = pallet_aura;
 
 	#[runtime::pallet_index(5)]
-	pub type Balances = pallet_balances;
+	pub type Grandpa = pallet_grandpa;
 
 	#[runtime::pallet_index(6)]
-	pub type TransactionPayment = pallet_transaction_payment;
+	pub type Balances = pallet_balances;
 
 	#[runtime::pallet_index(7)]
-	pub type Sudo = pallet_sudo;
+	pub type TransactionPayment = pallet_transaction_payment;
 
 	#[runtime::pallet_index(8)]
-	pub type AppRegistrar = pallet_app_registrar;
+	pub type ValidatorManager = validator_manager;
 
 	#[runtime::pallet_index(9)]
+	pub type Sudo = pallet_sudo;
+
+	#[runtime::pallet_index(10)]
+	pub type Authorship = pallet_authorship;
+
+	#[runtime::pallet_index(11)]
+	pub type Historical = session_historical;
+
+	#[runtime::pallet_index(12)]
+	pub type Session = pallet_session;
+
+	#[runtime::pallet_index(13)]
+	pub type AppRegistrar = pallet_app_registrar;
+
+	#[runtime::pallet_index(14)]
 	pub type Capsules = pallet_capsules;
 }
 
@@ -366,6 +413,7 @@ mod benches {
 		[frame_system, SystemBench::<Runtime>]
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
+		[pallet_multisig, Multisig]
 		[pallet_sudo, Sudo]
 		[pallet_utility, Utility]
 	);
@@ -449,13 +497,13 @@ impl_runtime_apis! {
 
 	impl sp_session::SessionKeys<Block> for Runtime {
 		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			opaque::SessionKeys::generate(seed)
+			SessionKeys::generate(seed)
 		}
 
 		fn decode_session_keys(
 			encoded: Vec<u8>,
 		) -> Option<Vec<(Vec<u8>, KeyTypeId)>> {
-			opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
+			SessionKeys::decode_into_raw_public_keys(&encoded)
 		}
 	}
 
