@@ -93,17 +93,27 @@ impl<T: Config> Pallet<T> {
 		capsule_id: CapsuleIdFor<T>,
 		followers_status: FollowersStatus,
 	) -> DispatchResult {
-		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
-		Self::ensure_capsule_liveness(&capsule)?;
-		capsule.followers_status = followers_status.clone();
+		//Change follower status
+		Capsules::<T>::try_mutate(&capsule_id, |maybe_capsule_id| {
+			if let Some(capsule) = maybe_capsule_id {
+				ensure!(
+					capsule.owners.binary_search(&who).is_ok(),
+					Error::<T>::BadOriginForOwnership
+				);
+				ensure!(capsule.status == Status::Live, Error::<T>::IncorrectCapsuleStatus);
+				capsule.followers_status = followers_status.clone();
+				Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
+					capsule_id,
+					status: followers_status,
+				});
+
+				Ok(())
+			} else {
+				Err(Error::<T>::BadFollowersStatus.into())
+			}
+		})
 
 		// Emit event
-		Self::deposit_event(Event::<T>::CapsuleFollowersStatusChanged {
-			capsule_id,
-			status: followers_status,
-		});
-
-		Ok(())
 	}
 
 	pub fn follow_capsule_from(who: T::AccountId, capsule_id: CapsuleIdFor<T>) -> DispatchResult {

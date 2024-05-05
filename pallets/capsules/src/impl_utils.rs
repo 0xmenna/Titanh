@@ -98,6 +98,7 @@ impl<T: Config> Pallet<T> {
 	) -> Result<CapsuleMetadataOf<T>, DispatchError> {
 		if let Some(capsule) = Capsules::<T>::get(&capsule_id) {
 			// check if `who` is an owner of the capsule
+
 			ensure!(capsule.owners.binary_search(&who).is_ok(), Error::<T>::BadOriginForOwnership);
 
 			Ok(capsule)
