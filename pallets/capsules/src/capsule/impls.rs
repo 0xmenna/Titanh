@@ -9,8 +9,8 @@ use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
 use sp_core::Get;
+use sp_runtime::DispatchResult;
 use sp_runtime::Saturating;
-use sp_runtime::{DispatchResult, FixedU128};
 
 /// Capsule related logic
 impl<T: Config> Pallet<T> {

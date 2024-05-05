@@ -2,8 +2,8 @@ use super::ContainerIdOf;
 use crate::{
 	capsule::CapsuleIdFor,
 	container::{ContainerMetadata, ContainerStatus},
-	AppData, AppIdFor, Approval, Config, Container, ContainerDetails, Error, Event,
-	FollowersStatus, IdComputation, Pallet,
+	AppData, AppIdFor, Approval, Config, Container, ContainerDetails, Error, Event, IdComputation,
+	Pallet,
 };
 use common_types::{BoundedString, EncodedData};
 use frame_support::ensure;
