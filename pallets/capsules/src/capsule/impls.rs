@@ -192,11 +192,16 @@ impl<T: Config> Pallet<T> {
 				== Follower::Basic,
 			Error::<T>::AlreadyFollower
 		);
-		CapsuleFollowers::<T>::insert(
-			&capsule_id,
-			&follower,
-			Follower::WaitingApprovalForPrivileged,
-		);
+
+		if (follower == who) {
+			CapsuleFollowers::<T>::insert(&capsule_id, &follower, Follower::Privileged);
+		} else {
+			CapsuleFollowers::<T>::insert(
+				&capsule_id,
+				&follower,
+				Follower::WaitingApprovalForPrivileged,
+			);
+		}
 
 		// Emit event
 		Self::deposit_event(Event::<T>::PrivilegedFollowerWaitingToApprove {
