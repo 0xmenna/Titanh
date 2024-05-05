@@ -127,10 +127,10 @@ fn testnet_genesis(
 			"balances": endowed_accounts.iter().cloned().map(|k| (k, 1u64 << 60)).collect::<Vec<_>>(),
 		},
 		"aura": {
-			"authorities": initial_authorities.iter().map(|x| (x.1.clone())).collect::<Vec<_>>(),
+			"authorities": Vec::<AuraId>::new(),
 		},
 		"grandpa": {
-			"authorities": initial_authorities.iter().map(|x| (x.2.clone(), 1)).collect::<Vec<_>>(),
+			"authorities": Vec::<GrandpaId>::new(),
 		},
 		"sudo": {
 			// Assign network admin rights.
