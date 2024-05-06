@@ -16,13 +16,10 @@ pub mod pallet {
 	use super::*;
 	use frame_support::{
 		pallet_prelude::{ValueQuery, *},
-		Blake2_128Concat,
+		traits::ValidatorRegistration,
+		Blake2_128Concat, Twox64Concat,
 	};
 	use frame_system::pallet_prelude::*;
-	use sp_runtime::{
-		traits::{AtLeast32BitUnsigned, Saturating},
-		FixedPointOperand,
-	};
 
 	// The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
 	// (`Call`s) in this pallet.
@@ -38,12 +35,41 @@ pub mod pallet {
 	pub trait Config: frame_system::Config {
 		/// The overarching runtime event type.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+		/// The maximum numbers of pinning nodes
+		#[pallet::constant]
+		type MaxPinningNodes: Get<u32>;
+		/// A stable ID for a validator.
+		type ValidatorId: Member
+			+ Parameter
+			+ MaybeSerializeDeserialize
+			+ MaxEncodedLen
+			+ TryFrom<Self::AccountId>;
+		/// Validators registrar
+		type ValidatorRegistrar: ValidatorRegistration<Self::ValidatorId>;
 	}
 
 	/// The number of pinning nodes that will pin the content underneath an IPFS cid
 	#[pallet::storage]
 	#[pallet::getter(fn content_replication_factor)]
 	pub type ContentReplicationFactor<T: Config> = StorageValue<_, ReplicationFactor>;
+
+	/// The ring of the pinning nodes, by means of a circular vector of identifiers (hashes)
+	#[pallet::storage]
+	#[pallet::getter(fn pinning_nodes_ring)]
+	pub type PinningNodesRing<T: Config> = StorageValue<_, PinningNodesOf<T>, ValueQuery>;
+
+	/// The replicas of a given content identifer
+	#[pallet::storage]
+	#[pallet::getter(fn content_replicas)]
+	#[pallet::unbounded]
+	pub type ContentReplicas<T: Config> =
+		StorageMap<_, Twox64Concat, ContentIdOf<T>, Vec<PinningNodeIdOf<T>>, ValueQuery>;
+
+	/// Metadata of pinning nodes
+	#[pallet::storage]
+	#[pallet::getter(fn pinning_nodes_metadata)]
+	pub type PinnigNodesMetadata<T: Config> =
+		StorageMap<_, Twox64Concat, PinningNodeIdOf<T>, PinningNodeMetadata<T::ValidatorId>>;
 
 	/// Events that functions in this pallet can emit.
 	#[pallet::event]
@@ -81,6 +107,7 @@ pub mod pallet {
 
 			ContentReplicationFactor::<T>::put(factor);
 			Self::deposit_event(Event::<T>::ContentReplicationFactorSet { factor });
+
 			Ok(())
 		}
 	}
