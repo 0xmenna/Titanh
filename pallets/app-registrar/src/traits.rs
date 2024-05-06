@@ -1,4 +1,4 @@
-use crate::{AppPermissions, Config, Pallet};
+use crate::{AppPermissions, Config, Pallet, PermissionState};
 use codec::MaxEncodedLen;
 use frame_support::Parameter;
 use sp_runtime::traits::{MaybeSerializeDeserialize, Member};
@@ -14,5 +14,7 @@ impl<T: Config> PermissionsApp<T::AccountId> for Pallet<T> {
 
 	fn has_account_permissions(account: &T::AccountId, app: Self::AppId) -> bool {
 		AppPermissions::<T>::get(app, account)
+			.map(|permission_state| permission_state == PermissionState::Active)
+			.unwrap_or_default()
 	}
 }

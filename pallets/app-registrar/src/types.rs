@@ -16,3 +16,9 @@ pub struct AppDetails<AccountId> {
 	pub owner: AccountId,
 	pub status: AppSubscriptionStatus,
 }
+
+#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
+pub enum PermissionState {
+	Active,
+	WaitingApproval,
+}

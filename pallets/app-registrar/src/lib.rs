@@ -61,8 +61,7 @@ pub mod pallet {
 		T::AppId,
 		Blake2_128Concat,
 		T::AccountId,
-		bool,
-		ValueQuery,
+		PermissionState,
 	>;
 
 	#[pallet::storage]
@@ -86,6 +85,10 @@ pub mod pallet {
 			app_id: T::AppId,
 			status: AppSubscriptionStatus,
 		},
+		AccountPermissionWaitingApproval {
+			app_id: T::AppId,
+			who: T::AccountId,
+		},
 		NewAccountPermission {
 			app_id: T::AppId,
 			who: T::AccountId,
@@ -106,6 +109,7 @@ pub mod pallet {
 		NotOwner,
 		IncorrectStatus,
 		NotAllowed,
+		BadPermissions,
 	}
 
 	#[pallet::call]
@@ -125,7 +129,7 @@ pub mod pallet {
 				AppDetails { owner: who.clone(), status: Default::default() },
 			);
 
-			AppPermissions::<T>::insert(index, who.clone(), true);
+			AppPermissions::<T>::insert(index, who.clone(), PermissionState::Active);
 
 			Self::deposit_event(Event::<T>::AppCreated { who, app_id: index });
 			// Return a successful `DispatchResult`
@@ -165,30 +169,36 @@ pub mod pallet {
 			})
 		}
 
-		// TODO: Aggiungi una lista di attesa, uno storage in cui aggiungi tutti quelli che vogliono iscriversi all'app
 		#[pallet::call_index(2)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn enable_account_permissions(
 			origin: OriginFor<T>,
 			app_id: T::AppId,
-			permissions_reciever: T::AccountId,
+			permissions_receiver: T::AccountId,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
 
 			let app_metadata = AppMetadata::<T>::get(app_id).ok_or(Error::<T>::InvalidAppId)?;
-
 			ensure!(who == app_metadata.owner, Error::<T>::NotOwner);
 
 			ensure!(
 				AppSubscriptionStatus::SelectedByOwner == app_metadata.status,
 				Error::<T>::IncorrectStatus
 			);
-			AppPermissions::<T>::insert(app_id, &permissions_reciever, true);
-
-			Self::deposit_event(Event::<T>::NewAccountPermission {
+			ensure!(
+				AppPermissions::<T>::get(app_id, &permissions_receiver).is_none(),
+				Error::<T>::BadPermissions
+			);
+			AppPermissions::<T>::insert(
 				app_id,
-				who: permissions_reciever,
+				&permissions_receiver,
+				PermissionState::WaitingApproval,
+			);
+
+			Self::deposit_event(Event::<T>::AccountPermissionWaitingApproval {
+				app_id,
+				who: permissions_receiver,
 			});
 			Ok(())
 		}
@@ -204,8 +214,30 @@ pub mod pallet {
 					== AppMetadata::<T>::get(app_id).ok_or(Error::<T>::InvalidAppId)?.status,
 				Error::<T>::IncorrectStatus
 			);
-			AppPermissions::<T>::insert(app_id, &who, true);
+			ensure!(AppPermissions::<T>::get(app_id, &who).is_none(), Error::<T>::BadPermissions);
+			AppPermissions::<T>::insert(app_id, &who, PermissionState::Active);
 
+			Self::deposit_event(Event::<T>::NewAccountPermission { app_id, who });
+			Ok(())
+		}
+
+		#[pallet::call_index(4)]
+		#[pallet::weight(Weight::from_parts(100_000, 0))]
+		pub fn approve_app_permission(origin: OriginFor<T>, app_id: T::AppId) -> DispatchResult {
+			// Check that the extrinsic was signed and get the signer.
+			let who = ensure_signed(origin)?;
+			// Check that the status is set to Anyone.
+
+			AppPermissions::<T>::get(app_id, &who)
+				.map(|permissions_state| {
+					assert!(
+						permissions_state == PermissionState::WaitingApproval,
+						"Account is in an already active state"
+					)
+				})
+				.ok_or(Error::<T>::BadPermissions)?;
+
+			AppPermissions::<T>::insert(app_id, &who, PermissionState::Active);
 			Self::deposit_event(Event::<T>::NewAccountPermission { app_id, who });
 			Ok(())
 		}
