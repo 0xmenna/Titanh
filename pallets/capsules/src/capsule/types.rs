@@ -64,7 +64,6 @@ pub enum Status {
 	#[default]
 	Live,
 	ItemsDeletion(DeletionCompletion),
-	CapsuleContainersDeletion,
 	FinalDeletion,
 }
 

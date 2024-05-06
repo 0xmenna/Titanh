@@ -1,14 +1,14 @@
 use crate::{
 	capsule::{CapsuleIdFor, CapsuleMetadataOf, Status},
 	container::{ContainerDetailsOf, ContainerIdOf, ContainerStatus},
-	AppIdFor, Approval, CapsuleClearCursors, CapsuleCursorsOf, Capsules, Config, ContainerDetails,
-	DeletionCompletion, Error, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
+	AppIdFor, Approval, Capsules, Config, ContainerDetails, DeletionCompletion, Error,
+	IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use codec::Encode;
 use common_types::{Accounts, HashOf};
 use frame_support::ensure;
 use sp_core::{Get, Hasher};
-use sp_runtime::{BoundedVec, DispatchError, DispatchResult};
+use sp_runtime::{DispatchError, DispatchResult};
 use sp_std::{vec, vec::Vec};
 
 impl<T: Config> Pallet<T> {
@@ -128,76 +128,7 @@ impl<T: Config> Pallet<T> {
 		Ok(())
 	}
 
-	// Utility for the OwnersWaitingApprovals Cursor
-	// Returns wether is has completed the deletion based on `maybe_cursor`.
-	// If None then it has completed the clearing
-	pub fn modify_cursors_for_approvals(
-		capsule_id: &CapsuleIdFor<T>,
-		maybe_cursors: Option<&mut CapsuleCursorsOf<T>>,
-		maybe_cursor: Option<Vec<u8>>,
-	) -> bool {
-		if let Some(cursor) = maybe_cursor {
-			let ownersip_approvals_cursor = BoundedVec::truncate_from(cursor);
-			if let Some(cursors) = maybe_cursors {
-				cursors.0 = Some(ownersip_approvals_cursor);
-			} else {
-				let cursors: CapsuleCursorsOf<T> =
-					(Some(ownersip_approvals_cursor), Option::default(), Option::default());
-				CapsuleClearCursors::<T>::insert(capsule_id, cursors);
-			}
-			false
-		} else {
-			true
-		}
-	}
-
-	// Utility for the CapsuleFollowers Cursor
-	// Returns wether is has completed the deletion based on `maybe_cursor`.
-	// If None then it has completed the clearing
-	pub fn modify_cursors_for_followers(
-		capsule_id: &CapsuleIdFor<T>,
-		maybe_cursors: Option<&mut CapsuleCursorsOf<T>>,
-		maybe_cursor: Option<Vec<u8>>,
-	) -> bool {
-		if let Some(cursor) = maybe_cursor {
-			let followers_cursor = BoundedVec::truncate_from(cursor);
-			if let Some(cursors) = maybe_cursors {
-				cursors.1 = Some(followers_cursor);
-			} else {
-				let cursors: CapsuleCursorsOf<T> =
-					(Option::default(), Some(followers_cursor), Option::default());
-				CapsuleClearCursors::<T>::insert(capsule_id, cursors);
-			}
-			false
-		} else {
-			true
-		}
-	}
-
-	// Utility for the CapsuleContainers Cursor
-	// Returns wether is has completed the deletion based on `maybe_cursor`.
-	// If None then it has completed the clearing
-	pub fn modify_cursors_for_capsule_containers(
-		capsule_id: &CapsuleIdFor<T>,
-		maybe_cursors: Option<&mut CapsuleCursorsOf<T>>,
-		maybe_cursor: Option<Vec<u8>>,
-	) -> bool {
-		if let Some(cursor) = maybe_cursor {
-			let capsule_containers_cursor = BoundedVec::truncate_from(cursor);
-			if let Some(cursors) = maybe_cursors {
-				cursors.2 = Some(capsule_containers_cursor);
-			} else {
-				let cursors: CapsuleCursorsOf<T> =
-					(Option::default(), Option::default(), Some(capsule_containers_cursor));
-				CapsuleClearCursors::<T>::insert(capsule_id, cursors);
-			}
-			false
-		} else {
-			true
-		}
-	}
-
-	pub fn try_transition_second_destroying_stage(
+	pub fn try_transition_final_destroying_stage(
 		capsule: &mut CapsuleMetadataOf<T>,
 		completion: &DeletionCompletion,
 	) {
@@ -207,7 +138,7 @@ impl<T: Config> Pallet<T> {
 				followers: true,
 				container_keys: true,
 			}) {
-			capsule.status = Status::CapsuleContainersDeletion
+			capsule.status = Status::FinalDeletion;
 		}
 	}
 

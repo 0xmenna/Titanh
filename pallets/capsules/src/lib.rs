@@ -106,11 +106,6 @@ pub mod pallet {
 		KeyOf<T>,
 	>;
 
-	/// Clear-cursor for Capsule deleting items, map from Capsule -> (Maybe) CapsuleCursorOf.
-	#[pallet::storage]
-	pub(super) type CapsuleClearCursors<T: Config> =
-		StorageMap<_, Twox64Concat, CapsuleIdFor<T>, CapsuleCursorsOf<T>>;
-
 	/// Container with different capsules identified by a key
 	#[pallet::storage]
 	#[pallet::getter(fn container_get)]
@@ -447,7 +442,7 @@ pub mod pallet {
 			Self::destroy_followers_from(capsule_id, T::RemoveItemsLimit::get())
 		}
 
-		/// Deletes all capsule within a container, up to `T::RemoveItemsLimit`
+		/// Deletes all capsules within a container and the entries of `CapsuleContainers up to `T::RemoveItemsLimit`
 		#[pallet::call_index(12)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn destroy_capsule_container_keys(
@@ -459,20 +454,8 @@ pub mod pallet {
 			Self::destroy_container_keys_of(capsule_id, T::RemoveItemsLimit::get())
 		}
 
-		/// Deletes all entries of `CapsuleContainers`, up to T::RemoveItemsLimit`
-		#[pallet::call_index(13)]
-		#[pallet::weight(Weight::from_parts(100_000, 0))]
-		pub fn destroy_capsule_containers(
-			origin: OriginFor<T>,
-			capsule_id: CapsuleIdFor<T>,
-		) -> DispatchResult {
-			// Check that the extrinsic was signed and get the signer.
-			ensure_signed(origin)?;
-			Self::destroy_capsule_containers_from(capsule_id, T::RemoveItemsLimit::get())
-		}
-
 		/// Finish the destroy of a capsule
-		#[pallet::call_index(14)]
+		#[pallet::call_index(13)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn finish_destroy_capsule(
 			origin: OriginFor<T>,
@@ -488,7 +471,7 @@ pub mod pallet {
 		*/
 
 		/// Create a container
-		#[pallet::call_index(15)]
+		#[pallet::call_index(14)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn create_container(
 			origin: OriginFor<T>,
@@ -502,7 +485,7 @@ pub mod pallet {
 		}
 
 		/// Approves an ownership request for a given container
-		#[pallet::call_index(16)]
+		#[pallet::call_index(15)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn approve_container_ownership(
 			origin: OriginFor<T>,
@@ -514,7 +497,7 @@ pub mod pallet {
 		}
 
 		/// Share the ownership of a container with another account
-		#[pallet::call_index(17)]
+		#[pallet::call_index(16)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn share_container_ownership(
 			origin: OriginFor<T>,
@@ -527,7 +510,7 @@ pub mod pallet {
 		}
 
 		/// Puts a capsule into a container
-		#[pallet::call_index(18)]
+		#[pallet::call_index(17)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn container_put(
 			origin: OriginFor<T>,
@@ -541,7 +524,7 @@ pub mod pallet {
 		}
 
 		/// Removes a capsule from a container
-		#[pallet::call_index(19)]
+		#[pallet::call_index(18)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn container_remove(
 			origin: OriginFor<T>,
@@ -554,7 +537,7 @@ pub mod pallet {
 		}
 
 		/// Change Container Status
-		#[pallet::call_index(20)]
+		#[pallet::call_index(19)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn change_container_status(
 			origin: OriginFor<T>,

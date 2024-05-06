@@ -1,8 +1,8 @@
 use super::{CapsuleIdFor, CapsuleMetaBuilder, CapsuleUploadData};
 use crate::{
-	capsule::Status, AppIdFor, Approval, CapsuleClearCursors, CapsuleContainers, CapsuleFollowers,
-	CapsuleItems, Capsules, Config, Container, DeletionCompletion, Error, Event, Follower,
-	FollowersStatus, IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
+	capsule::Status, AppIdFor, Approval, CapsuleContainers, CapsuleFollowers, CapsuleItems,
+	Capsules, Config, Container, DeletionCompletion, Error, Event, Follower, FollowersStatus,
+	IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
 use common_types::{BlockNumberFor, CidFor, ContentSize};
 use frame_support::ensure;
@@ -290,21 +290,13 @@ impl<T: Config> Pallet<T> {
 	) -> DispatchResult {
 		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
 
-		let mut maybe_cursors = CapsuleClearCursors::<T>::get(&capsule_id);
-		let r = OwnersWaitingApprovals::<T>::clear_prefix(
-			&capsule_id,
-			max,
-			maybe_cursors
-				.clone()
-				.map(|cursors| cursors.0)
-				.flatten()
-				.as_ref()
-				.map(|x| &x[..]),
-		);
-
-		let removal_completion =
-			Self::modify_cursors_for_approvals(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
-		CapsuleClearCursors::<T>::set(&capsule_id, maybe_cursors);
+		let mut removal_completion = true;
+		for (i, _) in OwnersWaitingApprovals::<T>::drain_prefix(&capsule_id).enumerate() {
+			if i + 1 >= max as usize {
+				removal_completion = false;
+				break;
+			}
+		}
 
 		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
@@ -313,7 +305,7 @@ impl<T: Config> Pallet<T> {
 					followers: deletion_completition.followers,
 					container_keys: deletion_completition.container_keys,
 				}));
-				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+				Self::try_transition_final_destroying_stage(&mut capsule, &deletion_completition);
 				Capsules::<T>::insert(&capsule_id, capsule);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -331,21 +323,13 @@ impl<T: Config> Pallet<T> {
 	pub fn destroy_followers_from(capsule_id: CapsuleIdFor<T>, max: u32) -> DispatchResult {
 		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
 
-		let mut maybe_cursors = CapsuleClearCursors::<T>::get(&capsule_id);
-		let r = CapsuleFollowers::<T>::clear_prefix(
-			&capsule_id,
-			max,
-			maybe_cursors
-				.clone()
-				.map(|cursors| cursors.1)
-				.flatten()
-				.as_ref()
-				.map(|x| &x[..]),
-		);
-
-		let removal_completion =
-			Self::modify_cursors_for_followers(&capsule_id, maybe_cursors.as_mut(), r.maybe_cursor);
-		CapsuleClearCursors::<T>::set(&capsule_id, maybe_cursors);
+		let mut removal_completion = true;
+		for (i, _) in CapsuleFollowers::<T>::drain_prefix(&capsule_id).enumerate() {
+			if i + 1 >= max as usize {
+				removal_completion = false;
+				break;
+			}
+		}
 
 		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
 			if removal_completion {
@@ -354,7 +338,7 @@ impl<T: Config> Pallet<T> {
 					followers: true,
 					container_keys: deletion_completition.container_keys,
 				}));
-				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+				Self::try_transition_final_destroying_stage(&mut capsule, &deletion_completition);
 				Capsules::<T>::insert(&capsule_id, capsule);
 			}
 			Self::deposit_event(Event::<T>::CapsuleItemsDeleted {
@@ -373,14 +357,15 @@ impl<T: Config> Pallet<T> {
 		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
 
 		let mut removal_completion = true;
-		for (i, (container_id, key)) in CapsuleContainers::<T>::iter_prefix(&capsule_id).enumerate()
+		for (i, (container_id, key)) in
+			CapsuleContainers::<T>::drain_prefix(&capsule_id).enumerate()
 		{
-			if i >= max as usize {
+			Container::<T>::remove(container_id, key);
+
+			if i + 1 >= max as usize {
 				removal_completion = false;
 				break;
 			}
-
-			Container::<T>::remove(container_id, key);
 		}
 
 		if let Status::ItemsDeletion(deletion_completition) = capsule.status.clone() {
@@ -390,7 +375,7 @@ impl<T: Config> Pallet<T> {
 					followers: deletion_completition.followers,
 					container_keys: true,
 				}));
-				Self::try_transition_second_destroying_stage(&mut capsule, &deletion_completition);
+				Self::try_transition_final_destroying_stage(&mut capsule, &deletion_completition);
 				Capsules::<T>::insert(&capsule_id, capsule);
 			}
 
@@ -406,55 +391,12 @@ impl<T: Config> Pallet<T> {
 		}
 	}
 
-	pub fn destroy_capsule_containers_from(
-		capsule_id: CapsuleIdFor<T>,
-		max: u32,
-	) -> DispatchResult {
-		let mut capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
-		ensure!(
-			capsule.status == Status::CapsuleContainersDeletion,
-			Error::<T>::IncorrectCapsuleStatus
-		);
-
-		let mut maybe_cursors = CapsuleClearCursors::<T>::get(&capsule_id);
-		let r = CapsuleFollowers::<T>::clear_prefix(
-			&capsule_id,
-			max,
-			maybe_cursors
-				.clone()
-				.map(|cursors| cursors.2)
-				.flatten()
-				.as_ref()
-				.map(|x| &x[..]),
-		);
-
-		let removal_completion = Self::modify_cursors_for_capsule_containers(
-			&capsule_id,
-			maybe_cursors.as_mut(),
-			r.maybe_cursor,
-		);
-		CapsuleClearCursors::<T>::set(&capsule_id, maybe_cursors);
-
-		if removal_completion {
-			capsule.set_status(Status::FinalDeletion);
-			Capsules::<T>::insert(&capsule_id, capsule);
-		}
-
-		Self::deposit_event(Event::<T>::CapsuleContainersDeleted {
-			capsule_id,
-			removal_completion,
-		});
-
-		Ok(())
-	}
-
 	pub fn finish_destroy_capsule_from(capsule_id: CapsuleIdFor<T>) -> DispatchResult {
 		let capsule = Capsules::<T>::get(capsule_id).ok_or(Error::<T>::InvalidCapsuleId)?;
 
 		ensure!(capsule.status == Status::FinalDeletion, Error::<T>::IncorrectCapsuleStatus);
 
 		Capsules::<T>::remove(&capsule_id);
-		CapsuleClearCursors::<T>::remove(&capsule_id);
 		Self::deposit_event(Event::<T>::CapsuleDeleted { capsule_id });
 
 		Ok(())

@@ -1,12 +1,10 @@
-use crate::{CapsuleContainers, CapsuleFollowers, Config, OwnersWaitingApprovals};
+use crate::Config;
 use codec::{Decode, Encode, MaxEncodedLen};
 use common_types::*;
-use frame_support::storage::KeyLenOf;
 use frame_system::Config as SystemConfig;
 use pallet_app_registrar::PermissionsApp;
 use scale_info::TypeInfo;
 use sp_core::Get;
-use sp_runtime::BoundedVec;
 use sp_std::prelude::*;
 
 /// An application specific identifier
@@ -66,13 +64,6 @@ pub enum CapsuleItems {
 	Followers,
 	KeysInContainers,
 }
-
-/// Clear-cursors for capsule references (ownership approvals, followers and capsule containers)
-pub type CapsuleCursorsOf<T> = (
-	Option<BoundedVec<u8, KeyLenOf<OwnersWaitingApprovals<T>>>>,
-	Option<BoundedVec<u8, KeyLenOf<CapsuleFollowers<T>>>>,
-	Option<BoundedVec<u8, KeyLenOf<CapsuleContainers<T>>>>,
-);
 
 /// The deletion completion of the itmes of a capsule
 #[derive(Encode, Decode, MaxEncodedLen, Default, Clone, PartialEq, Eq, Debug, TypeInfo)]
