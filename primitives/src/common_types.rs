@@ -1,6 +1,3 @@
-// We make sure this crate uses `no_std` for compiling to Wasm.
-#![cfg_attr(not(feature = "std"), no_std)]
-
 use codec::{Codec, Decode, Encode, MaxEncodedLen};
 pub use frame_support::traits::Time;
 use frame_support::Parameter;

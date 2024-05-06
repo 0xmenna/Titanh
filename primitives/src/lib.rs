@@ -2,6 +2,9 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
+mod common_types;
+
+pub use common_types::*;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},

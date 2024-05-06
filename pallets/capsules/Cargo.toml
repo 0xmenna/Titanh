@@ -33,7 +33,7 @@ sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polka
 
 # own dependencies
 pallet-app-registrar = { path = "../app-registrar", default-features = false }
-common-types = { path = "../common-types", default-features = false }
+common-types = { package = "primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0" }
