@@ -8,7 +8,7 @@ pub use common_types::*;
 use sp_runtime::{
 	generic,
 	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic,
+	KeyTypeId, MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic,
 };
 
 /// An index to a block.
@@ -38,6 +38,8 @@ pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 pub type BlockId = generic::BlockId<Block>;
 /// Session index
 pub type SessionIndex = u32;
+
+pub const PINNING: KeyTypeId = KeyTypeId(*b"pinn");
 
 /// This determines the average expected block time that we are targeting.
 /// Blocks will be produced at a minimum duration defined by `SLOT_DURATION`.

@@ -6,10 +6,30 @@ mod types;
 use codec::Encode;
 use common_types::PinningNodeIdOf;
 use sp_core::Hasher;
+use sp_std::vec::Vec;
 pub use types::*;
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
 pub use pallet::*;
+
+pub mod ed25519 {
+	mod app_ed25519 {
+		use common_types::PINNING;
+		use sp_application_crypto::{app_crypto, ed25519};
+		app_crypto!(ed25519, PINNING);
+	}
+
+	sp_application_crypto::with_pair! {
+		/// An IPFS keypair using ed25519 as its crypto.
+		pub type AuthorityPair = app_ed25519::Pair;
+	}
+
+	/// An IPFS signature using ed25519 as its crypto.
+	pub type AuthoritySignature = app_ed25519::Signature;
+
+	/// An IPFS identifier using ed25519 as its crypto.
+	pub type AuthorityId = app_ed25519::Public;
+}
 
 // All pallet logic is defined in its own module and must be annotated by the `pallet` attribute.
 #[frame_support::pallet]

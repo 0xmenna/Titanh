@@ -281,6 +281,20 @@ impl pallet_sudo::Config for Runtime {
 	type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+	pub RegistrationMessage: &'static [u8] = b"Pinning node registration";
+}
+
+impl pallet_pinning_committee::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type MaxPinningNodes = ConstU32<512>;
+	type ValidatorId = AccountId;
+	type ValidatorRegistrar = Session;
+	type ValidatorIdOf = ValidatorIdOf;
+	type IPFSNodeId = pallet_pinning_committee::ed25519::AuthorityId;
+	type RegistrationMessage = RegistrationMessage;
+}
+
 impl pallet_app_registrar::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	type AppId = u32;
@@ -361,9 +375,12 @@ mod runtime {
 	pub type Session = pallet_session;
 
 	#[runtime::pallet_index(13)]
-	pub type AppRegistrar = pallet_app_registrar;
+	pub type PinningCommittee = pallet_pinning_committee;
 
 	#[runtime::pallet_index(14)]
+	pub type AppRegistrar = pallet_app_registrar;
+
+	#[runtime::pallet_index(15)]
 	pub type Capsules = pallet_capsules;
 }
 

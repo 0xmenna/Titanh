@@ -4,7 +4,7 @@ use common_types::{HashOf, PinningNodeIdOf};
 use scale_info::TypeInfo;
 use sp_application_crypto::RuntimeAppPublic;
 use sp_runtime::BoundedVec;
-use sp_std::prelude::*;
+use sp_std::{prelude::*, vec::Vec};
 
 /// The number of pinning nodes that will pin some content
 pub type ReplicationFactor = u32;
