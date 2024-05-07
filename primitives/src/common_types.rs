@@ -41,7 +41,14 @@ pub type HashOf<T> = <T as frame_system::Config>::Hash;
 /// A bounded vector of te chain's accounts (aka public keys)
 pub type Accounts<AccountId, S> = BoundedVec<AccountId, S>;
 
+/// Type to identify the number of bytes of the content on IPFS
 pub type ContentSize = u128;
+
+/// Identifeier of a pinning node in a ring
+pub type PinningNodeIdOf<T> = HashOf<T>;
+
+/// An IPFS peer ID
+pub type IPFSPeerIdOf<T> = HashOf<T>;
 
 #[derive(Encode, Decode, MaxEncodedLen, Clone, Default, PartialEq, Eq, Debug, TypeInfo)]
 #[scale_info(skip_type_params(S))]

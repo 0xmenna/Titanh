@@ -1,6 +1,6 @@
 [package]
-name = "pallet-pinning-nodes-manager"
-description = "FRAME pallet for registring applications"
+name = "pallet-pinning-committee"
+description = "FRAME pallet for handling the pinning nodes committee"
 version = "0.0.0"
 license = "MIT-0"
 authors.workspace = true
@@ -30,6 +30,7 @@ frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
+sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 common-types = { package = "primitives", path = "../../primitives", default-features = false }
 
 [dev-dependencies]
@@ -49,6 +50,7 @@ std = [
 	"sp-io/std",
 	"sp-std/std",
 	"sp-runtime/std",
+	"sp-application-crypto/std",
 	"common-types/std",
 ]
 runtime-benchmarks = [
