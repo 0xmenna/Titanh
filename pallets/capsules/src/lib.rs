@@ -2,12 +2,16 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 // Re-export pallet items so that they can be accessed from the crate namespace.
-pub use pallet::*;
 
 mod capsule;
 mod container;
 mod impl_utils;
 mod types;
+
+pub use pallet::*;
+
+pub use capsule::*;
+pub use container::*;
 use sp_std::vec::Vec;
 pub use types::*;
 

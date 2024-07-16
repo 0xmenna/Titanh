@@ -60,8 +60,8 @@ impl_opaque_keys! {
 // https://docs.substrate.io/main-docs/build/upgrade#runtime-versioning
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-	spec_name: create_runtime_str!("solochain-template-runtime"),
-	impl_name: create_runtime_str!("solochain-template-runtime"),
+	spec_name: create_runtime_str!("titanh-runtime"),
+	impl_name: create_runtime_str!("titanh-runtime"),
 	authoring_version: 1,
 	// The version of the runtime specification. A full node will not attempt to use its native
 	//   runtime in substitute for the on-chain Wasm runtime unless all of `spec_name`,
@@ -86,7 +86,7 @@ pub const MICRO: Balance = MILLI / 1000;
 pub const NANO: Balance = MICRO / 1000;
 pub const PICO: Balance = NANO / 1000;
 
-// The whole process for a single block should take 1s, of which 1.2s is for creation,
+// The whole process for a single block should take 3s, of which 1.2s is for creation,
 // 600ms for propagation and 1.2ms for validation. Hence the block weight should be within 400ms.
 pub const MAX_BLOCK_WEIGHT: Weight =
 	Weight::from_parts(WEIGHT_REF_TIME_PER_MILLIS.saturating_mul(1200), 0);

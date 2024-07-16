@@ -4,7 +4,7 @@
 
 use crate::service::FullClient;
 
-use node_template_runtime as runtime;
+use titanh_runtime as runtime;
 use primitives::{AccountId, Balance};
 use runtime::{BalancesCall, SystemCall};
 use sc_cli::Result;

@@ -1,6 +1,7 @@
 mod types;
 mod utils;
 
-fn main() {
+#[tokio::main]
+async fn main() {
 	todo!()
 }

@@ -2,22 +2,23 @@
 /// In particular, to build storage keys
 use codec::Encode;
 use frame_support::{Blake2_128Concat, StorageHasher, Twox128, Twox64Concat};
+use sp_core::storage::StorageKey;
 
 #[derive(Default)]
-struct StorageUtilReady;
+pub struct StorageUtilReady;
 /// The module name that contains the storage element
-struct ModuleName(String);
+pub struct ModuleName(String);
 /// The storage name of the module
-struct StorageName(String);
+pub struct StorageName(String);
 /// The prefix of the storage key
-struct StoragePrefix {
+pub struct StoragePrefix {
 	module: ModuleName,
 	storage: StorageName,
 }
 
-type StorageItemsKeyHash = Vec<u8>;
+pub type StorageItemsKeyHash = Vec<u8>;
 /// The prefix and suffix of a storage key
-struct StorageKeyData {
+pub struct StorageKeyData {
 	prefix: StoragePrefix,
 	suffix: Vec<StorageItemsKeyHash>,
 }
@@ -61,7 +62,7 @@ impl StorageKeyBuilder<StorageKeyData> {
 		}
 	}
 
-	pub fn build(mut self) -> Vec<u8> {
+	pub fn build(mut self) -> StorageKey {
 		let mut storage_key = Vec::new();
 		// construct prefix
 		let module_name = self.0.prefix.module;
@@ -71,6 +72,6 @@ impl StorageKeyBuilder<StorageKeyData> {
 		// add suffix
 		storage_key.append(&mut self.0.suffix);
 
-		storage_key.concat()
+		StorageKey(storage_key.concat())
 	}
 }

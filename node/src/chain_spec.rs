@@ -1,4 +1,4 @@
-use node_template_runtime::{AccountId, RuntimeGenesisConfig, SessionKeys, Signature, WASM_BINARY};
+use titanh_runtime::{AccountId, RuntimeGenesisConfig, SessionKeys, Signature, WASM_BINARY};
 use primitives::{ADDRESSES_ENCODING, TOKEN_DECIMALS};
 use sc_service::ChainType;
 use serde_json::{Number, Value};

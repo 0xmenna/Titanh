@@ -8,7 +8,7 @@
 use std::sync::Arc;
 
 use jsonrpsee::RpcModule;
-use node_template_runtime::{AccountId, Balance, Nonce};
+use titanh_runtime::{AccountId, Balance, Nonce};
 use primitives::Block;
 use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;

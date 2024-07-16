@@ -14,7 +14,7 @@
 // You should have received a copy of the GNU General Public License
 // along with Polkadot.  If not, see <http://www.gnu.org/licenses/>.
 
-//! A pallet for managing validators on Rococo.
+//! A pallet for managing validators.
 
 use primitives::SessionIndex;
 use sp_std::vec::Vec;
