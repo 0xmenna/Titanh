@@ -5785,6 +5785,28 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8b870d8c151b6f2fb93e84a13146138f05d02ed11c7e7c54f8826aaaf7c9f184"
 
 [[package]]
+name = "pinning_node"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "clap",
+ "env_logger 0.11.3",
+ "frame-support 28.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
+ "frame-system 28.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
+ "hex-literal",
+ "log",
+ "pallet-capsules",
+ "parity-scale-codec",
+ "sp-core 28.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
+ "sp-crypto-hashing 0.1.0",
+ "sp-runtime 31.0.1 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
+ "substrate-api-client",
+ "titanh-runtime",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "pkcs8"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9730,28 +9752,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
-]
-
-[[package]]
-name = "store_subscriber_node"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "clap",
- "env_logger 0.11.3",
- "frame-support 28.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
- "frame-system 28.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
- "hex-literal",
- "log",
- "pallet-capsules",
- "parity-scale-codec",
- "sp-core 28.0.0 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
- "sp-crypto-hashing 0.1.0",
- "sp-runtime 31.0.1 (git+https://github.com/paritytech/polkadot-sdk.git?branch=master)",
- "substrate-api-client",
- "titanh-runtime",
- "tokio",
- "url",
 ]
 
 [[package]]

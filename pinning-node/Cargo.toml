@@ -1,5 +1,5 @@
 [package]
-name = "store_subscriber_node"
+name = "pinning_node"
 description = "Node that subscribes to store events and sends IPFS pinning requests"
 version = "0.0.0"
 license = "MIT-0"

@@ -10,7 +10,7 @@ members = [
     "node",
     "pallets/capsules", "pallets/app-registrar", "pallets/pinning-committee",
     "runtime",
-	"store-subscriber", "primitives",
+	"pinning-node", "primitives",
 ]
 resolver = "2"
 [profile.release]
