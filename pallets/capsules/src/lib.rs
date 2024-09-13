@@ -177,6 +177,7 @@ pub mod pallet {
 		/// The content pointed by a capsule has changed
 		CapsuleContentChanged {
 			capsule_id: CapsuleIdFor<T>,
+			old_cid: CidFor<T>,
 			cid: CidFor<T>,
 			size: ContentSize,
 		},
@@ -216,6 +217,7 @@ pub mod pallet {
 		/// Capsule deleted
 		CapsuleDeleted {
 			capsule_id: CapsuleIdFor<T>,
+			cid: CidFor<T>,
 		},
 		/// Container uploaded
 		ContainerCreated {

@@ -1,45 +1,24 @@
-use super::substrate_storage::{StorageKeyBuilder, StorageKeyData};
-use crate::types::chain::{DefaultApi, ValidatorKeyPair};
+use crate::types::chain::ValidatorKeyPair;
 use anyhow::{anyhow, Result};
-use codec::Decode;
-use sp_core::{sr25519::Pair as CryptoPair, storage::StorageKey, Pair};
-use substrate_api_client::{
-	ac_primitives::DefaultRuntimeConfig, rpc::JsonrpseeClient, Api, GetStorage,
-};
+use sp_core::Pair;
+use subxt::{tx::PairSigner, OnlineClient, SubstrateConfig};
 use url::Url;
 
 /// Substrate api with a default configuration
 #[derive(Clone)]
-pub struct SubstrateApi(DefaultApi);
+pub struct SubstrateApi {
+	api: OnlineClient<SubstrateConfig>,
+	signer: PairSigner<SubstrateConfig, ValidatorKeyPair>,
+}
 
 impl SubstrateApi {
-	/// Create a new storage key builder for a module and storage item
-	pub fn storage_key_builder(
-		&self,
-		module_name: &str,
-		storage_name: &str,
-	) -> StorageKeyBuilder<StorageKeyData> {
-		StorageKeyBuilder::default()
-			.module_name(module_name)
-			.storage_name(storage_name)
-			.create_storage_items()
-	}
-
-	/// Get a storage value by key
-	pub async fn get_storage_by_key<T: Decode>(&self, key: StorageKey) -> Result<T> {
-		let value: T = self
-			.0
-			.get_storage_by_key(key.clone(), None)
-			.await
-			.map_err(|_| anyhow!("Error decoding value for key: {:?}", key))?
-			.unwrap();
-
-		Ok(value)
+	pub fn api(&self) -> OnlineClient<SubstrateConfig> {
+		self.api.clone()
 	}
 }
 
 #[derive(Default)]
-pub struct ApiNotInitialzed;
+pub struct ApiNotInitialized;
 pub struct RpcEndpoint(Url);
 
 impl RpcEndpoint {
@@ -50,14 +29,14 @@ impl RpcEndpoint {
 
 pub struct ApiReady {
 	rpc_url: RpcEndpoint,
-	keypair: ValidatorKeyPair,
+	signer: PairSigner<SubstrateConfig, ValidatorKeyPair>,
 }
 
 /// Builder for the Substrate API
 #[derive(Default)]
 pub struct SubstrateApiBuilder<T>(T);
 
-impl SubstrateApiBuilder<ApiNotInitialzed> {
+impl SubstrateApiBuilder<ApiNotInitialized> {
 	pub fn rpc_url(self, url: &str) -> Result<SubstrateApiBuilder<RpcEndpoint>> {
 		let url = Url::parse(url).map_err(|_| anyhow!("Invalid url: {:?}", url))?;
 
@@ -75,27 +54,23 @@ impl SubstrateApiBuilder<RpcEndpoint> {
 		phrase: &str,
 		password: Option<&str>,
 	) -> Result<SubstrateApiBuilder<ApiReady>> {
-		let keypair = CryptoPair::from_phrase(phrase, password)
-			.map_err(|_| anyhow!("Error retrieving keypair"))?
-			.0;
+		// Derive the key pair from the seed phrase (mnemonic)
+		let key_pair = ValidatorKeyPair::from_string(phrase, None)
+			.map_err(|_| anyhow!("Error retrieving keypair"))?;
 
-		Ok(SubstrateApiBuilder(ApiReady { rpc_url: self.0, keypair }))
+		// Create a signer using the key pair
+		let signer: PairSigner<SubstrateConfig, ValidatorKeyPair> = PairSigner::new(key_pair);
+
+		Ok(SubstrateApiBuilder(ApiReady { rpc_url: self.0, signer }))
 	}
 }
 
 impl SubstrateApiBuilder<ApiReady> {
 	pub async fn build(self) -> Result<SubstrateApi> {
-		// Initialize the api
-		let client = JsonrpseeClient::new(self.0.rpc_url.as_str())
+		let api = OnlineClient::<SubstrateConfig>::from_url(self.0.rpc_url.as_str())
 			.await
-			.map_err(|_| anyhow!("Client url error"))?;
+			.map_err(|_| anyhow!("Invalid endpoint"))?;
 
-		let mut api = Api::<DefaultRuntimeConfig, _>::new(client)
-			.await
-			.map_err(|_| anyhow!("Runtime configuration error"))?;
-
-		api.set_signer(self.0.keypair.into());
-
-		Ok(SubstrateApi(api))
+		Ok(SubstrateApi { api, signer: self.0.signer })
 	}
 }

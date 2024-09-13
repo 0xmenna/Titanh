@@ -21,15 +21,19 @@ tokio = { version = "1.37.0", features = ["full"] }
 
 
 # Substrate dependencies
-codec = { package = "parity-scale-codec", version = "3.6.1", default-features = false, features = [
+codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [
 	"derive",
 ] }
-frame-support = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master", features = ["full_crypto", "serde"] }
-sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
-sp-crypto-hashing = { git = "https://github.com/paritytech/polkadot-sdk.git", branch = "master" }
+scale-info = { version = "2.11.3", features = ["derive", "serde"] }
+sp-core = { version = "31.0.0", features = ["full_crypto", "serde"] }
+sp-runtime = "34.0.0"
+sp-crypto-hashing = "0.1.0"
 substrate-api-client = { git = "https://github.com/scs/substrate-api-client", branch = "master"}
+
+subxt = { version = "0.37.0", features = ["substrate-compat"] }
+# pallets
+pallet-app-registrar = { path = "../pallets/app-registrar" }
+
 
 # IPFS dependencies
 

@@ -1,5 +1,4 @@
 mod api;
-mod substrate_storage;
 
+use super::types::chain::TitanhRuntimeConfig;
 pub use api::{SubstrateApi, SubstrateApiBuilder};
-pub use substrate_storage::StorageItemKey;

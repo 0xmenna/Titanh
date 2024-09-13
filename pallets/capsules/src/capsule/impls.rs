@@ -140,12 +140,13 @@ impl<T: Config> Pallet<T> {
 		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
 		Self::ensure_capsule_liveness(&capsule)?;
 		// change the capsule cid and size
+		let old_cid = capsule.cid.clone();
 		capsule.cid = cid;
 		capsule.size = size;
 
 		Capsules::<T>::insert(&capsule_id, capsule);
 
-		Self::deposit_event(Event::<T>::CapsuleContentChanged { capsule_id, cid, size });
+		Self::deposit_event(Event::<T>::CapsuleContentChanged { capsule_id, old_cid, cid, size });
 
 		Ok(())
 	}
@@ -397,7 +398,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(capsule.status == Status::FinalDeletion, Error::<T>::IncorrectCapsuleStatus);
 
 		Capsules::<T>::remove(&capsule_id);
-		Self::deposit_event(Event::<T>::CapsuleDeleted { capsule_id });
+		Self::deposit_event(Event::<T>::CapsuleDeleted { capsule_id, cid: capsule.cid });
 
 		Ok(())
 	}
