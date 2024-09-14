@@ -37,6 +37,9 @@ pallet-app-registrar = { path = "../pallets/app-registrar" }
 
 primitives = { path = "../primitives" }
 
+# KV database
+sled = "0.34"
+
 
 
 

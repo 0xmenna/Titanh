@@ -1,9 +1,12 @@
 use crate::types::chain::{BlockHash, CapsuleEvents};
 use crate::types::chain::{Rpc, Signer, SubstrateApi};
-use anyhow::Result;
+use anyhow::{Context, Result};
 use primitives::BlockNumber;
+use std::sync::Arc;
+use std::thread;
 use subxt::{storage::Address, utils::Yes};
 use titanh::capsules::events::CapsuleUploaded;
+use tokio::sync::Mutex;
 
 #[subxt::subxt(runtime_metadata_path = "metadata.scale")]
 pub mod titanh {}
@@ -47,6 +50,30 @@ impl SubstrateClient {
 			.ok_or_else(|| anyhow::anyhow!("Vale is not defined in storage"))?;
 
 		Ok(result)
+	}
+
+	pub async fn handle_capsule_events(&self) -> Result<()> {
+		let capsule_events = Arc::new(Mutex::new(Vec::<CapsuleEvents>::new()));
+
+		self.subscribe_to_chain_events().await
+	}
+
+	async fn subscribe_to_chain_events(&self) -> Result<()> {
+		let mut blocks_sub = self.api.blocks().subscribe_finalized().await?;
+		while let Some(block) = blocks_sub.next().await {
+			let block = block?;
+
+			let events = block.events().await?;
+			for event in events.iter() {
+				let event = event?;
+
+				if let Some(upload_event) = event.as_event::<CapsuleUploaded>()? {
+					println!("Capsule uploaded: {:?}", upload_event);
+				};
+			}
+		}
+
+		Ok(())
 	}
 
 	pub async fn capsule_events_from_block(

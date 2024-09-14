@@ -2,6 +2,7 @@ use sp_core::H256;
 use std::str::FromStr;
 use subxt::blocks::BlockRef;
 
+mod db;
 mod substrate;
 mod types;
 mod utils;
@@ -16,10 +17,10 @@ async fn main() {
 			"also arena hammer relief judge vintage rather intact elder review until filter",
 			None,
 		)
-		.unwrap()
 		.build()
-		.await
-		.unwrap();
+		.await;
+
+	client.handle_capsule_events().await.unwrap();
 
 	let app_registrar_query = titanh::storage().app_registrar().current_app_id();
 
