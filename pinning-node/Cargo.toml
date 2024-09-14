@@ -28,11 +28,17 @@ scale-info = { version = "2.11.3", features = ["derive", "serde"] }
 sp-core = { version = "31.0.0", features = ["full_crypto", "serde"] }
 sp-runtime = "34.0.0"
 sp-crypto-hashing = "0.1.0"
-substrate-api-client = { git = "https://github.com/scs/substrate-api-client", branch = "master"}
-
 subxt = { version = "0.37.0", features = ["substrate-compat"] }
-# pallets
+
+# Pallet dependencies
+pallet-capsules = { path = "../pallets/capsules" }
+titanh-runtime = { path = "../runtime" }
 pallet-app-registrar = { path = "../pallets/app-registrar" }
+
+primitives = { path = "../primitives" }
+
+
+
 
 
 # IPFS dependencies
@@ -44,9 +50,6 @@ url = "2.5.0"
 anyhow = "1.0.86"
 hex-literal = "0.4.1"
 
-# Pallet dependencies
-pallet-capsules = { path = "../pallets/capsules" }
-titanh-runtime = { path = "../runtime" }
 
 
 

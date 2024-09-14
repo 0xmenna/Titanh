@@ -123,6 +123,7 @@ pub mod pallet {
 			// Increment the app id by one
 			let mut index = CurrentAppId::<T>::get();
 			index.saturating_inc();
+			CurrentAppId::<T>::put(index);
 
 			AppMetadata::<T>::insert(
 				index,
