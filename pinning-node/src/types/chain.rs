@@ -1,28 +1,24 @@
+use primitives::Hash;
 use sp_core::H256;
 use subxt::backend::legacy::LegacyRpcMethods;
-use subxt::blocks::BlockRef;
-use subxt::tx::PairSigner;
-use subxt::OnlineClient;
-use subxt::SubstrateConfig;
-/// The chain's runtime
-pub use titanh_runtime::Runtime as TitanhRuntimeConfig;
-// An event that takes place after a chain state transition
-pub use titanh_runtime::RuntimeEvent;
+use subxt::{blocks::BlockRef, tx::PairSigner, OnlineClient, SubstrateConfig};
 
-use super::ipfs::Cid;
+/// Module for accessing all blockchain related types. It is based on the encoded metadata provided at `runtime_metadata_path`
+#[subxt::subxt(runtime_metadata_path = "metadata.scale")]
+pub mod titanh {}
 
+/// The key pair used by the validator
 pub type ValidatorKeyPair = sp_core::sr25519::Pair;
-
 /// The substrate api
 pub type SubstrateApi = OnlineClient<SubstrateConfig>;
-
 /// Signer used in the api transactions
 pub type Signer = PairSigner<SubstrateConfig, ValidatorKeyPair>;
-
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
+/// A pinning node's identifier in the ring
+pub type NodeId = Hash;
 
-pub struct BlockHash(H256);
+pub struct BlockHash(Hash);
 
 impl From<BlockHash> for BlockRef<H256> {
 	fn from(block_hash: BlockHash) -> Self {
@@ -30,16 +26,10 @@ impl From<BlockHash> for BlockRef<H256> {
 	}
 }
 
-impl From<H256> for BlockHash {
+impl From<Hash> for BlockHash {
 	fn from(h: H256) -> Self {
 		BlockHash(h)
 	}
 }
 
-pub type CapsuleKey = Vec<u8>;
-
-pub enum CapsuleEvents {
-	Upload { cid: Cid, key: CapsuleKey },
-	Update { key: CapsuleKey, old_cid: Cid, new_cid: Cid },
-	Removal { key: CapsuleKey, cid: Cid },
-}
+pub type CapsuleKey = Hash;

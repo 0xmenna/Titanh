@@ -1,28 +1,37 @@
-use crate::types::chain::{BlockHash, CapsuleEvents};
-use crate::types::chain::{Rpc, Signer, SubstrateApi};
-use anyhow::{Context, Result};
+use crate::types::{
+	chain::{titanh, BlockHash, NodeId, Rpc, Signer, SubstrateApi},
+	pinning::{PinningCapsuleEvent, PinningRing},
+};
+use anyhow::Result;
 use primitives::BlockNumber;
-use std::sync::Arc;
-use std::thread;
+use std::rc::Rc;
 use subxt::{storage::Address, utils::Yes};
-use titanh::capsules::events::CapsuleUploaded;
-use tokio::sync::Mutex;
-
-#[subxt::subxt(runtime_metadata_path = "metadata.scale")]
-pub mod titanh {}
 
 /// Substrate client with a default configuration
 /// It handles chain state requests and transactions
 #[derive(Clone)]
 pub struct SubstrateClient {
+	/// The Substrate api to query the chain storage
 	api: SubstrateApi,
+	/// The chain rpc methods
 	rpc: Rpc,
+	/// The singer of transactions
 	signer: Signer,
+	/// The node id bounded to the client
+	node_id: NodeId,
+	/// A reference to the pinning ring
+	pinning_ring: Rc<PinningRing>,
 }
 
 impl SubstrateClient {
-	pub fn new(api: SubstrateApi, rpc: Rpc, signer: Signer) -> Self {
-		SubstrateClient { api, rpc, signer }
+	pub fn new(
+		api: SubstrateApi,
+		rpc: Rpc,
+		signer: Signer,
+		node_id: NodeId,
+		pinning_ring: Rc<PinningRing>,
+	) -> Self {
+		SubstrateClient { api, rpc, signer, node_id, pinning_ring }
 	}
 
 	/// Queries the chain's storage
@@ -52,48 +61,58 @@ impl SubstrateClient {
 		Ok(result)
 	}
 
-	pub async fn handle_capsule_events(&self) -> Result<()> {
-		let capsule_events = Arc::new(Mutex::new(Vec::<CapsuleEvents>::new()));
+	/// Given a block hash, it returns the list of pinning capsule events that are relevant to the pinning node, based on the pinning ring.
+	async fn pinning_events_at(&self, block_hash: BlockHash) -> Result<Vec<PinningCapsuleEvent>> {
+		let events_query = titanh::storage().system().events();
+		// Events at block identified by `block_hash`
+		let events = self.query(&events_query, Some(block_hash)).await?;
 
-		self.subscribe_to_chain_events().await
-	}
+		let mut pinning_events = Vec::new();
+		for event_record in events.into_iter() {
+			let event = PinningCapsuleEvent::try_from_runtime_event(event_record.event);
 
-	async fn subscribe_to_chain_events(&self) -> Result<()> {
-		let mut blocks_sub = self.api.blocks().subscribe_finalized().await?;
-		while let Some(block) = blocks_sub.next().await {
-			let block = block?;
+			if let Some(event) = event {
+				let is_node_replica =
+					self.pinning_ring.is_key_owned_by_node(event.key, self.node_id)?;
 
-			let events = block.events().await?;
-			for event in events.iter() {
-				let event = event?;
-
-				if let Some(upload_event) = event.as_event::<CapsuleUploaded>()? {
-					println!("Capsule uploaded: {:?}", upload_event);
-				};
+				if is_node_replica {
+					pinning_events.push(event)
+				}
 			}
 		}
 
-		Ok(())
+		Ok(pinning_events)
 	}
 
-	pub async fn capsule_events_from_block(
+	/// Returns the list of pinning capsule events occured between a block range. It can skip a number of events for the `start` block because they may have been already processed.
+	pub async fn pinning_events_in_range(
 		&self,
-		block_number: BlockNumber,
-	) -> Result<Vec<CapsuleEvents>> {
-		let block_query = titanh::storage().system().block_hash(block_number);
-		let at = self.query(&block_query, None).await?;
+		start: BlockNumber,
+		end: BlockNumber,
+		skip_num_events: usize,
+	) -> Result<Vec<PinningCapsuleEvent>> {
+		let mut capsule_events = Vec::new();
+		for block_number in start..=end {
+			let block_hash = self.get_block_hash(block_number).await?;
 
-		let events_query = titanh::storage().system().events();
+			let mut events = self.pinning_events_at(block_hash).await?;
 
-		let result = self.query(&events_query, Some(at.into())).await?;
+			if block_number == start {
+				// remove first `skip_num_events`
+				events.drain(0..skip_num_events);
+			}
 
-		let mut events = Vec::new();
-		result.into_iter().for_each(|record| {
-			let event = record.event;
+			capsule_events.extend(events);
+		}
 
-			// if let CapsuleUploaded {} = event {}
-		});
+		Ok(capsule_events)
+	}
 
-		Ok(events)
+	/// Returns the block hash of a n associated block number
+	async fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash> {
+		let block_hash_query = titanh::storage().system().block_hash(&block_number);
+		let block_hash = self.query(&block_hash_query, None).await?;
+
+		Ok(block_hash.into())
 	}
 }

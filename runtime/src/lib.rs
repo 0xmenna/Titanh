@@ -316,6 +316,7 @@ impl pallet_capsules::Config for Runtime {
 	type RemoveItemsLimit = ConstU32<512>;
 	// 1 hour, considering one block is 3 seconds
 	type MinimumRetentionPeriod = ConstU32<1200>;
+	type CidLength = ConstU32<46>;
 }
 
 // Create the runtime by composing the FRAME pallets that were previously configured.

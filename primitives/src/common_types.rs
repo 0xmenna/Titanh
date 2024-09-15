@@ -10,6 +10,7 @@ use sp_runtime::{
 };
 use sp_std::fmt::Debug;
 use sp_std::vec::Vec;
+
 pub enum Error {
 	ScaleCodecDecodeError,
 	BadEncodedData,
@@ -33,7 +34,7 @@ pub trait Balance:
 }
 
 /// A type for representing an IPFS CID
-pub type CidFor<T> = HashOf<T>;
+pub type CidFor<S> = BoundedVec<u8, S>;
 
 /// The type in which the chain records hashes
 pub type HashOf<T> = <T as frame_system::Config>::Hash;

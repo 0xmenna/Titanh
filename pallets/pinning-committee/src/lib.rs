@@ -106,7 +106,7 @@ pub mod pallet {
 	#[pallet::storage]
 	#[pallet::getter(fn pinning_nodes_ring)]
 	pub type PinningNodesRing<T: Config> = StorageValue<_, PinningRing<T>, ValueQuery>;
-
+	
 	/// Events that functions in this pallet can emit.
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]

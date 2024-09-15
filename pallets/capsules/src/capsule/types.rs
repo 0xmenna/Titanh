@@ -12,7 +12,7 @@ pub type CapsuleIdFor<T> = HashOf<T>;
 
 // Metadata associated to capsules
 pub type CapsuleMetadataOf<T> = CapsuleMetadata<
-	CidFor<T>,
+	<T as Config>::CidLength,
 	BlockNumberFor<T>,
 	<T as SystemConfig>::AccountId,
 	<T as Config>::MaxOwners,
@@ -22,16 +22,17 @@ pub type CapsuleMetadataOf<T> = CapsuleMetadata<
 
 // Actual type of a capsule metadata
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo, MaxEncodedLen)]
-#[scale_info(skip_type_params(MaxAccounts, S))]
-pub struct CapsuleMetadata<Cid, BlockNumber, AccountId, MaxAccounts, S, AppId>
+#[scale_info(skip_type_params(MaxAccounts, S, CidLength))]
+pub struct CapsuleMetadata<CidLength, BlockNumber, AccountId, MaxAccounts, S, AppId>
 where
 	MaxAccounts: Get<u32>,
 	S: Get<u32>,
+	CidLength: Get<u32>,
 {
 	// Capsule status
 	pub status: Status,
 	/// IPFS cid that points to the content
-	pub cid: Cid,
+	pub cid: CidFor<CidLength>,
 	/// Size in bytes of the underline content
 	pub size: ContentSize,
 	/// The block number at which pinning nodes will stop pinning
@@ -44,11 +45,12 @@ where
 	pub app_data: AppData<AppId, S>,
 }
 
-impl<Cid, BlockNumber, AccountId, MaxAccounts, S, AppId>
-	CapsuleMetadata<Cid, BlockNumber, AccountId, MaxAccounts, S, AppId>
+impl<CidLength, BlockNumber, AccountId, MaxAccounts, S, AppId>
+	CapsuleMetadata<CidLength, BlockNumber, AccountId, MaxAccounts, S, AppId>
 where
 	MaxAccounts: Get<u32>,
 	S: Get<u32>,
+	CidLength: Get<u32>,
 {
 	pub fn set_status(&mut self, status: Status) {
 		self.status = status;
@@ -85,14 +87,14 @@ pub struct CapsuleUploadData<Cid, BlockNumber> {
 pub struct CapsuleMetaBuilder<T: Config> {
 	app_id: AppIdFor<T>,
 	owners: Vec<T::AccountId>,
-	upload_data: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+	upload_data: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
 }
 
 impl<T: Config> CapsuleMetaBuilder<T> {
 	pub fn new(
 		app_id: AppIdFor<T>,
 		owners: Vec<T::AccountId>,
-		upload_data: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+		upload_data: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
 	) -> Self {
 		Self { app_id, owners, upload_data }
 	}

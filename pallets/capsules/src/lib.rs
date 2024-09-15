@@ -71,6 +71,9 @@ pub mod pallet {
 		/// Minimum number of blocks for a capsule retention period
 		#[pallet::constant]
 		type MinimumRetentionPeriod: Get<u32>;
+		/// The IPFS CID length
+		#[pallet::constant]
+		type CidLength: Get<u32> + Clone;
 	}
 
 	/// Capsules that wrap an IPFS CID
@@ -139,7 +142,7 @@ pub mod pallet {
 			/// Application identifer
 			app_id: AppIdFor<T>,
 			/// IPFS cid that points to the content
-			cid: CidFor<T>,
+			cid: CidFor<T::CidLength>,
 			/// Size in bytes of the underline content
 			size: ContentSize,
 			/// App specific metadata
@@ -177,8 +180,8 @@ pub mod pallet {
 		/// The content pointed by a capsule has changed
 		CapsuleContentChanged {
 			capsule_id: CapsuleIdFor<T>,
-			old_cid: CidFor<T>,
-			cid: CidFor<T>,
+			old_cid: CidFor<T::CidLength>,
+			cid: CidFor<T::CidLength>,
 			size: ContentSize,
 		},
 		/// The endind retention block has been extended
@@ -217,7 +220,7 @@ pub mod pallet {
 		/// Capsule deleted
 		CapsuleDeleted {
 			capsule_id: CapsuleIdFor<T>,
-			cid: CidFor<T>,
+			cid: CidFor<T::CidLength>,
 		},
 		/// Container uploaded
 		ContainerCreated {
@@ -304,7 +307,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			app: AppIdFor<T>,
 			other_owner: Option<T::AccountId>,
-			capsule: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+			capsule: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.
 			let who = ensure_signed(origin)?;
@@ -365,7 +368,7 @@ pub mod pallet {
 		pub fn update_capsule_content(
 			origin: OriginFor<T>,
 			capsule_id: CapsuleIdFor<T>,
-			cid: CidFor<T>,
+			cid: CidFor<T::CidLength>,
 			size: ContentSize,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed and get the signer.

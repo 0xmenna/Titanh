@@ -17,7 +17,7 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		app: AppIdFor<T>,
 		maybe_other_owner: Option<T::AccountId>,
-		capsule: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+		capsule: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
 	) -> DispatchResult {
 		ensure!(
 			T::Permissions::has_account_permissions(&who, app.clone()),
@@ -134,14 +134,14 @@ impl<T: Config> Pallet<T> {
 	pub fn update_capsule_content_from(
 		who: T::AccountId,
 		capsule_id: CapsuleIdFor<T>,
-		cid: CidFor<T>,
+		cid: CidFor<T::CidLength>,
 		size: ContentSize,
 	) -> DispatchResult {
 		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
 		Self::ensure_capsule_liveness(&capsule)?;
 		// change the capsule cid and size
 		let old_cid = capsule.cid.clone();
-		capsule.cid = cid;
+		capsule.cid = cid.clone();
 		capsule.size = size;
 
 		Capsules::<T>::insert(&capsule_id, capsule);
@@ -237,7 +237,7 @@ impl<T: Config> Pallet<T> {
 		capsule_id: CapsuleIdFor<T>,
 		app_id: AppIdFor<T>,
 		ownership: Ownership<T::AccountId>,
-		metadata: CapsuleUploadData<CidFor<T>, BlockNumberFor<T>>,
+		metadata: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
 	) -> DispatchResult {
 		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::CapsuleIdAlreadyExists);
 
