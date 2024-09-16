@@ -19,5 +19,5 @@ pub struct PinningNodeController {
 	/// The node identifier in the ring
 	id: NodeId,
 	// TODO: remember to add ipfs client and channels
-	events_pool: PinningEventsPool,
+	//events_pool: PinningEventsPool,
 }

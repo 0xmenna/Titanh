@@ -7,7 +7,7 @@ use crate::types::{
 };
 use anyhow::Result;
 use primitives::BlockNumber;
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 use subxt::{storage::Address, utils::Yes};
 
 /// Substrate client with a default configuration
@@ -23,7 +23,7 @@ pub struct SubstrateClient {
 	/// The node id bounded to the client
 	node_id: NodeId,
 	/// A reference to the pinning ring
-	pinning_ring: Rc<PinningRing>,
+	pinning_ring: Arc<PinningRing>,
 }
 
 impl SubstrateClient {
@@ -32,7 +32,7 @@ impl SubstrateClient {
 		rpc: Rpc,
 		signer: Signer,
 		node_id: NodeId,
-		pinning_ring: Rc<PinningRing>,
+		pinning_ring: Arc<PinningRing>,
 	) -> Self {
 		SubstrateClient { api, rpc, signer, node_id, pinning_ring }
 	}
@@ -65,7 +65,7 @@ impl SubstrateClient {
 	}
 
 	/// Given a block hash, it returns the list of pinning capsule events that are relevant to the pinning node, based on the pinning ring.
-	async fn pinning_events_at(&self, block_hash: BlockHash) -> Result<Vec<PinningCapsuleEvent>> {
+	pub async fn pinning_events_at(&self, block_hash: BlockHash) -> Result<Vec<PinningCapsuleEvent>> {
 		let events_query = titanh::storage().system().events();
 		// Events at block identified by `block_hash`
 		let events = self.query(&events_query, Some(block_hash)).await?;
@@ -128,5 +128,9 @@ impl SubstrateClient {
 		let replication_factor = self.query(&replication_factor_query, None).await?;
 		let nodes_in_ring: PinningRing = PinningRing::new(hash_nodes, replication_factor);
 		Ok(nodes_in_ring)
+	}
+
+	pub fn get_api(&self) -> &SubstrateApi{
+		&self.api
 	}
 }
