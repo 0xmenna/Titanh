@@ -166,12 +166,15 @@ impl PinningEventsPool {
 		// Clone the Arc to use it in the thread that handles the event subscription
 		let client_api = Arc::clone(&self.client_api);
 
+		let tx_block = self.tx_block.to_owned();
+
 		let subscription: task::JoinHandle<anyhow::Result<()>> = task::spawn(async move {
 			let mut is_block_sent = false;
 			let mut blocks_sub = client_api.get_api().blocks().subscribe_finalized().await?;
 
 			while let Some(block) = blocks_sub.next().await {
 				let block = block?;
+				let a = tx_block.send(block.number() as BlockNumber).await;
 				// TODO: remember to use u64 for blocknumber
 				let events = client_api.pinning_events_at(block.hash().into());
 			}
