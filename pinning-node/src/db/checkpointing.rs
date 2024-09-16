@@ -1,7 +1,11 @@
+use std::sync::mpsc;
+
 use anyhow::Result;
 use codec::{Decode, Encode};
 use primitives::BlockNumber;
 use sled::Db;
+
+use crate::types::checkpoint::PinningCheckpoint;
 
 pub struct DbCheckpoint(Db);
 
@@ -12,25 +16,25 @@ impl DbCheckpoint {
 		Self(db)
 	}
 
-	pub fn checkpoint(&self, at: &BlockNumber) -> Result<()> {
+	pub fn checkpoint(&self, checkpoint: PinningCheckpoint) -> Result<()> {
 		self.0
-			.insert(b"checkpoint", at.encode())
+			.insert(b"checkpoint", checkpoint.encode())
 			.map_err(|_| anyhow::anyhow!("Failed to insert checkpoint"))?;
 
 		Ok(())
 	}
 
-	pub fn get_latest_checkpoint(&self) -> Result<Option<BlockNumber>> {
-		let block = self
+	pub fn read_checkpoint(&self) -> Result<Option<PinningCheckpoint>> {
+		let checkpoint = self
 			.0
 			.get(b"checkpoint")
-			.map_err(|_| anyhow::anyhow!("Failed to read block number from db"))?;
+			.map_err(|_| anyhow::anyhow!("Failed to read checkpoint from db"))?;
 
-		if let Some(block_number) = block {
-			let block_number = BlockNumber::decode(&mut block_number.as_ref())
-				.map_err(|_| anyhow::anyhow!("Failed to decode block number for checkpoint"))?;
+		if let Some(checkpoint) = checkpoint {
+			let checkpoint = PinningCheckpoint::decode(&mut checkpoint.as_ref())
+				.map_err(|_| anyhow::anyhow!("Failed to decode checkpoint"))?;
 
-			Ok(Some(block_number))
+			Ok(Some(checkpoint))
 		} else {
 			Ok(None)
 		}
