@@ -124,25 +124,43 @@ impl PinningRing {
 
 // Maybe it needs a channel rather than a vector of capsule events
 pub struct PinningEventsPool {
-	past_pinning_events: Vec<PinningCapsuleEvent>,
+	/// Events to be processed before listening the channel of upcoming events
+	events: Vec<PinningCapsuleEvent>,
 	// Todo mettere il canale in lettura degli eventi nuovi che arrivano dalla subscribe finalize
 }
 
 impl PinningEventsPool {
 	pub fn new() -> Self {
-		// todo: passare in input il canale. Fare che quello in lettura sia owned dalla pool
-		Self { past_pinning_events: Vec::new() }
+		// todo: gestire canali
+		Self { events: Vec::new() }
 	}
 
-	pub fn add_past_events(&mut self, events: Vec<PinningCapsuleEvent>) {
-		self.past_pinning_events.extend(events);
+	pub fn add_events(&mut self, events: Vec<PinningCapsuleEvent>) {
+		self.events.extend(events);
 	}
 
-	pub fn subscribe_finalized_events(&self) {
+	/// Pulls new finalized capsule events from the chain and produces them into a channel
+	pub fn produce_capsule_events(&self) {
+		// Lacio thread che fa subscription
+		// Main thread aspetta che gli viene comunicato il blocco
+		// Quando c'e il blocco fa la get_events() per quelli vecchi
+		// agiunge eventi a self => self.events.extend(events);
+		// termina
 		todo!()
+	}
+
+	fn produce_finalized_capsule_events(&self) {
+		todo!()
+	}
+
+	/// Consumes recieving events, first from the events `Vec` and then from the channel for new finalized events
+	pub fn consume_capsule_events(&self) {
+		// prima processa tutti gli eventi in self.events
+		// legge dal canale e porcessa eventi
 	}
 }
 
+// TODO: delete this is just a reference to how lifetime works
 // Lifetime usage
 // Il riferimento di ciao deve esistere finchè esiste la struct Ciao. Quinidi il ciclo di vita della variabile "ciao" è dipendente dalla struct.
 pub struct Ciao<'a> {
