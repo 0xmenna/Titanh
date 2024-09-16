@@ -4,7 +4,7 @@ use crate::types::{
 	pinning::PinningRing,
 };
 use sp_core::Pair;
-use std::rc::Rc;
+use std::{rc::Rc, sync::Arc};
 use subxt::{backend::rpc::RpcClient, tx::PairSigner, SubstrateConfig};
 use url::Url;
 
@@ -29,7 +29,7 @@ pub struct Api {
 pub struct ClientConfig {
 	api: Api,
 	node_id: NodeId,
-	pinning_ring: Rc<PinningRing>,
+	pinning_ring: Arc<PinningRing>,
 }
 
 /// Builder for the Substrate Client
@@ -70,7 +70,7 @@ impl SubstrateClientBuilder<Api> {
 	pub fn pinning_config(
 		self,
 		node_id: NodeId,
-		pinning_ring: Rc<PinningRing>,
+		pinning_ring: Arc<PinningRing>,
 	) -> SubstrateClientBuilder<ClientConfig> {
 		SubstrateClientBuilder(ClientConfig { api: self.0, node_id, pinning_ring })
 	}

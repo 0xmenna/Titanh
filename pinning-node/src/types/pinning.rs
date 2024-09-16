@@ -1,20 +1,23 @@
-use std::marker::PhantomData;
-use std::sync::mpsc::{Sender, Receiver};
-use primitives::BlockNumber;
-use std::sync::mpsc;
-use std::thread;
-use crate::{
-	controller::pinning_control::PinningNodeController, substrate::client::SubstrateClient,
-};
-
 use super::{
 	chain::{
 		titanh::{capsules::Event, runtime_types::titanh_runtime::RuntimeEvent},
 		CapsuleKey, NodeId,
 	},
+	channels::PinningChannels,
 	ipfs::Cid,
 };
+use crate::{
+	controller::pinning_control::PinningNodeController, substrate::client::SubstrateClient,
+};
 use anyhow::Result;
+use primitives::BlockNumber;
+use std::{marker::PhantomData, sync::Arc};
+use tokio::{
+	sync::mpsc::{
+		self, channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
+	},
+	task,
+};
 
 pub enum PinningEvent {
 	Pin { cid: Cid },
@@ -132,20 +135,26 @@ impl PinningRing {
 }
 
 // Maybe it needs a channel rather than a vector of capsule events
-pub struct PinningEventsPool<'a> {
-	client_api: &'a SubstrateClient,
+pub struct PinningEventsPool {
+	client_api: Arc<SubstrateClient>,
 	/// Events to be processed before listening the channel of upcoming events
 	events: Vec<PinningCapsuleEvent>,
-	// Todo mettere il canale in lettura degli eventi nuovi che arrivano dalla subscribe finalize
+
+	// Channels to receive and send a block number
+	rx_block: Receiver<BlockNumber>,
+	tx_block: Sender<BlockNumber>,
+	// Channels to receive and send events
+	rx_event: UnboundedReceiver<PinningCapsuleEvent>,
+	tx_event: UnboundedSender<PinningCapsuleEvent>,
 }
 
-impl<'a> PinningEventsPool<'a> {
-	pub fn new(client_api: &'a SubstrateClient) -> Self {
+impl PinningEventsPool {
+	pub fn new(client_api: Arc<SubstrateClient>) -> Self {
 		// todo: gestire canali
-		let (tx_block, rx_block): (Sender<BlockNumber>, Receiver<BlockNumber>) = mpsc::channel();
-		//let (tx_event, rx_event): (Sender<>, Receiver<>) = mpsc::channel();
-
-		Self { client_api, events: Vec::new() }
+		let channels = PinningChannels::new();
+		let (tx_block, rx_block) = channel(1);
+		let (tx_event, rx_event) = unbounded_channel();
+		Self { client_api, events: Vec::new(), rx_block, tx_block, rx_event, tx_event }
 	}
 
 	pub fn add_events(&mut self, events: Vec<PinningCapsuleEvent>) {
@@ -153,17 +162,33 @@ impl<'a> PinningEventsPool<'a> {
 	}
 
 	/// Pulls new finalized capsule events from the chain and produces them into a channel
-	pub fn produce_capsule_events(&self) {
-		// Lacio thread che fa subscription
+	pub fn produce_capsule_events(&self) -> Result<()> {
+		// Clone the Arc to use it in the thread that handles the event subscription
+		let client_api = Arc::clone(&self.client_api);
+
+		let tx_block = self.tx_block.to_owned();
+
+		let subscription: task::JoinHandle<anyhow::Result<()>> = task::spawn(async move {
+			let mut is_block_sent = false;
+			let mut blocks_sub = client_api.get_api().blocks().subscribe_finalized().await?;
+
+			while let Some(block) = blocks_sub.next().await {
+				let block = block?;
+				let a = tx_block.send(block.number() as BlockNumber).await;
+				// TODO: remember to use u64 for blocknumber
+				let events = client_api.pinning_events_at(block.hash().into());
+			}
+
+			Ok(())
+		});
+
 		// Main thread aspetta che gli viene comunicato il blocco
-		// Quando c'e il blocco fa la get_events() per quelli vecchi
+		// Legge il blocco dal canale, ha il riferimento del canale in lettura
+		// Quando c'e il bloeiver<PinningCacco fa la get_events() per quelli vecchi leggendoli dal canale in lettura degli eventi
 		// agiunge eventi a self => self.events.extend(events);
 		// termina
-		todo!()
-	}
 
-	fn produce_finalized_capsule_events(&self) {
-		todo!()
+		Ok(())
 	}
 
 	/// Consumes recieving events, first from the events `Vec` and then from the channel for new finalized events
