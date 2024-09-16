@@ -1,3 +1,4 @@
+mod controller;
 mod db;
 mod substrate;
 mod types;

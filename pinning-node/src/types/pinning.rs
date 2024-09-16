@@ -121,3 +121,34 @@ impl PinningRing {
 		Ok(node_idx.is_ok())
 	}
 }
+
+// Maybe it needs a channel rather than a vector of capsule events
+pub struct PinningEventsPool {
+	past_pinning_events: Vec<PinningCapsuleEvent>,
+	// Todo mettere il canale in lettura degli eventi nuovi che arrivano dalla subscribe finalize
+}
+
+impl PinningEventsPool {
+	pub fn new() -> Self {
+		// todo: passare in input il canale. Fare che quello in lettura sia owned dalla pool
+		Self { past_pinning_events: Vec::new() }
+	}
+
+	pub fn add_past_events(&mut self, events: Vec<PinningCapsuleEvent>) {
+		self.past_pinning_events.extend(events);
+	}
+
+	pub fn subscribe_finalized_events(&self) {
+		todo!()
+	}
+}
+
+// Lifetime usage
+// Il riferimento di ciao deve esistere finchè esiste la struct Ciao. Quinidi il ciclo di vita della variabile "ciao" è dipendente dalla struct.
+pub struct Ciao<'a> {
+	ciao: &'a str,
+}
+
+pub fn return_vector<'a>(x: &'a str, y: &'a str) -> &'a str {
+	return x;
+}
