@@ -1,5 +1,8 @@
 use crate::types::{
-	chain::{titanh, BlockHash, NodeId, Rpc, Signer, SubstrateApi},
+	chain::{
+		titanh::{self},
+		BlockHash, NodeId, Rpc, Signer, SubstrateApi,
+	},
 	pinning::{PinningCapsuleEvent, PinningRing},
 };
 use anyhow::Result;
@@ -114,5 +117,16 @@ impl SubstrateClient {
 		let block_hash = self.query(&block_hash_query, None).await?;
 
 		Ok(block_hash.into())
+	}
+	// Returns the state of the ring
+	pub async fn get_ring_state(&self) -> Result<PinningRing> {
+		let ring_state_query = titanh::storage().pinning_committee().pinning_nodes_ring();
+		let hash_nodes_bounded = self.query(&ring_state_query, None).await?;
+		let hash_nodes = hash_nodes_bounded.0.to_vec();
+		let replication_factor_query =
+			titanh::storage().pinning_committee().content_replication_factor();
+		let replication_factor = self.query(&replication_factor_query, None).await?;
+		let nodes_in_ring: PinningRing = PinningRing::new(hash_nodes, replication_factor);
+		Ok(nodes_in_ring)
 	}
 }
