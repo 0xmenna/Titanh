@@ -1,3 +1,12 @@
+use std::marker::PhantomData;
+use std::sync::mpsc::{Sender, Receiver};
+use primitives::BlockNumber;
+use std::sync::mpsc;
+use std::thread;
+use crate::{
+	controller::pinning_control::PinningNodeController, substrate::client::SubstrateClient,
+};
+
 use super::{
 	chain::{
 		titanh::{capsules::Event, runtime_types::titanh_runtime::RuntimeEvent},
@@ -123,16 +132,20 @@ impl PinningRing {
 }
 
 // Maybe it needs a channel rather than a vector of capsule events
-pub struct PinningEventsPool {
+pub struct PinningEventsPool<'a> {
+	client_api: &'a SubstrateClient,
 	/// Events to be processed before listening the channel of upcoming events
 	events: Vec<PinningCapsuleEvent>,
 	// Todo mettere il canale in lettura degli eventi nuovi che arrivano dalla subscribe finalize
 }
 
-impl PinningEventsPool {
-	pub fn new() -> Self {
+impl<'a> PinningEventsPool<'a> {
+	pub fn new(client_api: &'a SubstrateClient) -> Self {
 		// todo: gestire canali
-		Self { events: Vec::new() }
+		let (tx_block, rx_block): (Sender<BlockNumber>, Receiver<BlockNumber>) = mpsc::channel();
+		//let (tx_event, rx_event): (Sender<>, Receiver<>) = mpsc::channel();
+
+		Self { client_api, events: Vec::new() }
 	}
 
 	pub fn add_events(&mut self, events: Vec<PinningCapsuleEvent>) {
