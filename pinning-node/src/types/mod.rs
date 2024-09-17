@@ -1,5 +1,5 @@
 pub mod chain;
 pub mod channels;
-pub mod checkpoint;
+pub mod events;
 pub mod ipfs;
 pub mod pinning;

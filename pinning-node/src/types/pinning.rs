@@ -3,7 +3,8 @@ use super::{
 		titanh::{capsules::Event, runtime_types::titanh_runtime::RuntimeEvent},
 		CapsuleKey, NodeId,
 	},
-	channels::PinningChannels,
+	channels::{self, PinningReadingHandles, PinningWritingHandles},
+	checkpoint::PinningCheckpoint,
 	ipfs::Cid,
 };
 use crate::{
@@ -132,79 +133,4 @@ impl PinningRing {
 
 		Ok(node_idx.is_ok())
 	}
-}
-
-// Maybe it needs a channel rather than a vector of capsule events
-pub struct PinningEventsPool {
-	client_api: Arc<SubstrateClient>,
-	/// Events to be processed before listening the channel of upcoming events
-	events: Vec<PinningCapsuleEvent>,
-
-	// Channels to receive and send a block number
-	rx_block: Receiver<BlockNumber>,
-	tx_block: Sender<BlockNumber>,
-	// Channels to receive and send events
-	rx_event: UnboundedReceiver<PinningCapsuleEvent>,
-	tx_event: UnboundedSender<PinningCapsuleEvent>,
-}
-
-impl PinningEventsPool {
-	pub fn new(client_api: Arc<SubstrateClient>) -> Self {
-		// todo: gestire canali
-		let channels = PinningChannels::new();
-		let (tx_block, rx_block) = channel(1);
-		let (tx_event, rx_event) = unbounded_channel();
-		Self { client_api, events: Vec::new(), rx_block, tx_block, rx_event, tx_event }
-	}
-
-	pub fn add_events(&mut self, events: Vec<PinningCapsuleEvent>) {
-		self.events.extend(events);
-	}
-
-	/// Pulls new finalized capsule events from the chain and produces them into a channel
-	pub fn produce_capsule_events(&self) -> Result<()> {
-		// Clone the Arc to use it in the thread that handles the event subscription
-		let client_api = Arc::clone(&self.client_api);
-
-		let tx_block = self.tx_block.to_owned();
-
-		let subscription: task::JoinHandle<anyhow::Result<()>> = task::spawn(async move {
-			let mut is_block_sent = false;
-			let mut blocks_sub = client_api.get_api().blocks().subscribe_finalized().await?;
-
-			while let Some(block) = blocks_sub.next().await {
-				let block = block?;
-				let a = tx_block.send(block.number() as BlockNumber).await;
-				// TODO: remember to use u64 for blocknumber
-				let events = client_api.pinning_events_at(block.hash().into());
-			}
-
-			Ok(())
-		});
-
-		// Main thread aspetta che gli viene comunicato il blocco
-		// Legge il blocco dal canale, ha il riferimento del canale in lettura
-		// Quando c'e il bloeiver<PinningCacco fa la get_events() per quelli vecchi leggendoli dal canale in lettura degli eventi
-		// agiunge eventi a self => self.events.extend(events);
-		// termina
-
-		Ok(())
-	}
-
-	/// Consumes recieving events, first from the events `Vec` and then from the channel for new finalized events
-	pub fn consume_capsule_events(&self) {
-		// prima processa tutti gli eventi in self.events
-		// legge dal canale e porcessa eventi
-	}
-}
-
-// TODO: delete this is just a reference to how lifetime works
-// Lifetime usage
-// Il riferimento di ciao deve esistere finchè esiste la struct Ciao. Quinidi il ciclo di vita della variabile "ciao" è dipendente dalla struct.
-pub struct Ciao<'a> {
-	ciao: &'a str,
-}
-
-pub fn return_vector<'a>(x: &'a str, y: &'a str) -> &'a str {
-	return x;
 }
