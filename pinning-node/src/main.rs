@@ -7,6 +7,7 @@ mod db;
 mod substrate;
 mod types;
 mod utils;
+mod ipfs;
 
 #[tokio::main]
 async fn main() {
