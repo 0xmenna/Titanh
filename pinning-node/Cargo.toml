@@ -20,6 +20,7 @@ targets = ["x86_64-unknown-linux-gnu"]
 # crates.io
 clap = { version = "4.4.2", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["full"] }
+async-trait = "0.1.82"
 
 # Substrate dependencies
 codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [

@@ -3,11 +3,12 @@ use crate::types::{
 		titanh::{self},
 		BlockHash, NodeId, Rpc, Signer, SubstrateApi,
 	},
-	pinning::{PinningCapsuleEvent, PinningRing},
+	events::{self, NodeEvent},
+	ring::PinningRing,
 };
 use anyhow::Result;
 use primitives::BlockNumber;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 use subxt::{storage::Address, utils::Yes};
 
 /// Substrate client with a default configuration
@@ -64,22 +65,22 @@ impl SubstrateClient {
 		Ok(result)
 	}
 
-	/// Given a block hash, it returns the list of pinning capsule events that are relevant to the pinning node, based on the pinning ring.
-	pub async fn pinning_events_at(&self, block_hash: BlockHash) -> Result<Vec<PinningCapsuleEvent>> {
+	/// Given a block hash, it returns the list of events that are relevant to the pinning node, based on the pinning ring.
+	pub async fn events_at(&self, block_hash: BlockHash) -> Result<Vec<NodeEvent>> {
 		let events_query = titanh::storage().system().events();
 		// Events at block identified by `block_hash`
 		let events = self.query(&events_query, Some(block_hash)).await?;
 
 		let mut pinning_events = Vec::new();
 		for event_record in events.into_iter() {
-			let event = PinningCapsuleEvent::try_from_runtime_event(event_record.event);
+			let event = events::try_pinning_event_from_runtime(event_record.event);
 
 			if let Some(event) = event {
 				let is_node_replica =
 					self.pinning_ring.is_key_owned_by_node(event.key, self.node_id)?;
 
 				if is_node_replica {
-					pinning_events.push(event)
+					pinning_events.push(event.into())
 				}
 			}
 		}
@@ -88,24 +89,19 @@ impl SubstrateClient {
 	}
 
 	/// Returns the list of pinning capsule events occured between a block range. It can skip a number of events for the `start` block because they may have been already processed.
-	pub async fn pinning_events_in_range(
+	pub async fn events_in_range(
 		&self,
 		start: BlockNumber,
 		end: BlockNumber,
-		skip_num_events: usize,
-	) -> Result<Vec<PinningCapsuleEvent>> {
+	) -> Result<Vec<NodeEvent>> {
 		let mut capsule_events = Vec::new();
 		for block_number in start..=end {
 			let block_hash = self.get_block_hash(block_number).await?;
 
-			let mut events = self.pinning_events_at(block_hash).await?;
-
-			if block_number == start {
-				// remove first `skip_num_events`
-				events.drain(0..skip_num_events);
-			}
-
+			let events = self.events_at(block_hash).await?;
 			capsule_events.extend(events);
+			// Add barrier event for later checkpointing
+			capsule_events.push(NodeEvent::BlockCheckpoint(block_number));
 		}
 
 		Ok(capsule_events)
@@ -118,6 +114,7 @@ impl SubstrateClient {
 
 		Ok(block_hash.into())
 	}
+
 	// Returns the state of the ring
 	pub async fn get_ring_state(&self) -> Result<PinningRing> {
 		let ring_state_query = titanh::storage().pinning_committee().pinning_nodes_ring();
@@ -130,7 +127,7 @@ impl SubstrateClient {
 		Ok(nodes_in_ring)
 	}
 
-	pub fn get_api(&self) -> &SubstrateApi{
+	pub fn get_api(&self) -> &SubstrateApi {
 		&self.api
 	}
 }

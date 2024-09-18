@@ -1,10 +1,10 @@
 use super::client::SubstrateClient;
 use crate::types::{
 	chain::{NodeId, Rpc, SubstrateApi, ValidatorKeyPair},
-	pinning::PinningRing,
+	ring::PinningRing,
 };
 use sp_core::Pair;
-use std::{rc::Rc, sync::Arc};
+use std::sync::Arc;
 use subxt::{backend::rpc::RpcClient, tx::PairSigner, SubstrateConfig};
 use url::Url;
 

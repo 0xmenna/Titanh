@@ -1,4 +1,4 @@
-use super::{chain::titanh::app_registrar::events, pinning::PinningCapsuleEvent};
+use super::events::NodeEvent;
 use anyhow::Result;
 use primitives::BlockNumber;
 use tokio::sync::mpsc::{
@@ -21,7 +21,7 @@ pub fn build_channels() -> (PinningWritingHandles, PinningReadingHandles) {
 pub struct PinningWritingHandles {
 	is_block_number_sent: bool,
 	tx_block: Sender<BlockNumber>,
-	tx_events: UnboundedSender<PinningCapsuleEvent>,
+	tx_events: UnboundedSender<NodeEvent>,
 }
 
 impl PinningWritingHandles {
@@ -32,7 +32,7 @@ impl PinningWritingHandles {
 		Ok(())
 	}
 
-	pub fn send_event(&mut self, event: PinningCapsuleEvent) -> Result<()> {
+	pub fn send_event(&mut self, event: NodeEvent) -> Result<()> {
 		self.tx_events.send(event).map_err(|e| e.into())
 	}
 
@@ -43,7 +43,7 @@ impl PinningWritingHandles {
 
 pub struct PinningReadingHandles {
 	rx_block: Receiver<BlockNumber>,
-	rx_events: UnboundedReceiver<PinningCapsuleEvent>,
+	rx_events: UnboundedReceiver<NodeEvent>,
 }
 
 impl PinningReadingHandles {
@@ -59,7 +59,7 @@ impl PinningReadingHandles {
 		}
 	}
 
-	pub async fn rx_event(&self) -> &UnboundedReceiver<PinningCapsuleEvent> {
-		&self.rx_events
+	pub async fn receive_events(&mut self) -> Option<NodeEvent> {
+		self.rx_events.recv().await
 	}
 }
