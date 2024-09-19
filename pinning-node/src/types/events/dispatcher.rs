@@ -8,12 +8,17 @@ pub trait Dispatcher<E> {
 	async fn dispatch(&self, event: &E) -> Result<()>;
 }
 
+#[async_trait(?Send)]
+pub trait MutableDispatcher<E> {
+	async fn dispatch(&mut self, event: &E) -> Result<()>;
+}
+
 /// All dispatchers
-pub type EventDispatcher<'a> = (&'a DbClient, &'a IpfsClient);
+pub type EventDispatcher<'a> = (&'a DbClient, &'a mut IpfsClient);
 
 #[async_trait(?Send)]
-impl<'a> Dispatcher<NodeEvent> for EventDispatcher<'a> {
-	async fn dispatch(&self, event: &NodeEvent) -> Result<()> {
+impl<'a> MutableDispatcher<NodeEvent> for EventDispatcher<'a> {
+	async fn dispatch(&mut self, event: &NodeEvent) -> Result<()> {
 		match event {
 			// Checkpointing event
 			NodeEvent::BlockCheckpoint(checkpoint_event) => {
@@ -21,7 +26,8 @@ impl<'a> Dispatcher<NodeEvent> for EventDispatcher<'a> {
 			},
 			// Pinning event
 			NodeEvent::Pinning(keyed_pinning_event) => {
-				self.1.dispatch(keyed_pinning_event).await?;
+				let dispatch_res = self.1.dispatch(keyed_pinning_event).await;
+				debug_assert!(dispatch_res.is_ok());
 			},
 		};
 

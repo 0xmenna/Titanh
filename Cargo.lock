@@ -5963,6 +5963,7 @@ dependencies = [
  "log",
  "parity-scale-codec",
  "primitives",
+ "rand",
  "sled",
  "sp-core 31.0.0",
  "sp-crypto-hashing 0.1.0",

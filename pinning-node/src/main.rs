@@ -1,13 +1,11 @@
-use std::io::Cursor;
-
 use ipfs_api_backend_hyper::IpfsApi;
 
 mod controller;
 mod db;
+mod ipfs;
 mod substrate;
 mod types;
 mod utils;
-mod ipfs;
 
 #[tokio::main]
 async fn main() {

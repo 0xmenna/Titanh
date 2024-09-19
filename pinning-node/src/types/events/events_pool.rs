@@ -1,5 +1,5 @@
 use super::{
-	dispatcher::{Dispatcher, EventDispatcher},
+	dispatcher::{EventDispatcher, MutableDispatcher},
 	NodeEvent,
 };
 use crate::{
@@ -32,7 +32,7 @@ pub struct NodeEventsPool<'a> {
 impl<'a> NodeEventsPool<'a> {
 	pub fn new(
 		client_api: Arc<SubstrateClient>,
-		ipfs: &'a IpfsClient,
+		ipfs: &'a mut IpfsClient,
 		db: &'a DbCheckpoint,
 	) -> Result<Self> {
 		// Create handles to write and read from the channel
@@ -97,8 +97,6 @@ impl<'a> NodeEventsPool<'a> {
 	}
 
 	/// Consumes recieving events, first from the events `Vec` and then from the channel for new finalized events
-	///
-	/// TODO: remember to wrtie checkpoint in DB
 	pub async fn consume_capsule_events(&mut self) -> Result<()> {
 		// First, dispatch recovered events
 		for event in &self.events {
