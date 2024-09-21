@@ -3,7 +3,7 @@ use super::{
 		titanh::{capsules::Event, runtime_types::titanh_runtime::RuntimeEvent},
 		CapsuleKey,
 	},
-	ipfs::Cid,
+	cid::Cid,
 };
 use crate::db::checkpointing::BarrierCheckpoint;
 

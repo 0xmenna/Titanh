@@ -1,10 +1,13 @@
-use crate::types::{
-	chain::{
-		titanh::{self},
-		BlockHash, NodeId, Rpc, Signer, SubstrateApi,
+use crate::{
+	types::{
+		chain::{
+			titanh::{self},
+			BlockHash, NodeId, Rpc, Signer, SubstrateApi,
+		},
+		events::{self, NodeEvent},
+		ring::PinningRing,
 	},
-	events::{self, NodeEvent},
-	ring::PinningRing,
+	utils::ref_builder::AtomicRef,
 };
 use anyhow::Result;
 use primitives::BlockNumber;
@@ -21,21 +24,11 @@ pub struct SubstrateClient {
 	rpc: Rpc,
 	/// The singer of transactions
 	signer: Signer,
-	/// The node id bounded to the client
-	node_id: NodeId,
-	/// A reference to the pinning ring
-	pinning_ring: Arc<PinningRing>,
 }
 
 impl SubstrateClient {
-	pub fn new(
-		api: SubstrateApi,
-		rpc: Rpc,
-		signer: Signer,
-		node_id: NodeId,
-		pinning_ring: Arc<PinningRing>,
-	) -> Self {
-		SubstrateClient { api, rpc, signer, node_id, pinning_ring }
+	pub fn new(api: SubstrateApi, rpc: Rpc, signer: Signer) -> Self {
+		SubstrateClient { api, rpc, signer }
 	}
 
 	/// Queries the chain's storage
@@ -61,15 +54,66 @@ impl SubstrateClient {
 			.fetch(address)
 			.await?
 			.ok_or_else(|| anyhow::anyhow!("Vale is not defined in storage"))?;
-
 		Ok(result)
+	}
+
+	// Returns the state of the ring
+	pub async fn ring_state(&self) -> Result<PinningRing> {
+		let ring_state_query = titanh::storage().pinning_committee().pinning_nodes_ring();
+		let hash_nodes_bounded = self.query(&ring_state_query, None).await?;
+		let hash_nodes = hash_nodes_bounded.0.to_vec();
+		let replication_factor_query =
+			titanh::storage().pinning_committee().content_replication_factor();
+		let replication_factor = self.query(&replication_factor_query, None).await?;
+		let nodes_in_ring: PinningRing = PinningRing::new(hash_nodes, replication_factor);
+		Ok(nodes_in_ring)
+	}
+
+	/// Returns the block hash of a n associated block number
+	async fn block_hash(&self, block_number: BlockNumber) -> Result<BlockHash> {
+		let block_hash_query = titanh::storage().system().block_hash(&block_number);
+		let block_hash = self.query(&block_hash_query, None).await?;
+
+		Ok(block_hash.into())
+	}
+
+	pub fn api(&self) -> &SubstrateApi {
+		&self.api
+	}
+
+	pub fn rpc(&self) -> &Rpc {
+		&self.rpc
+	}
+
+	pub fn signer(&self) -> &Signer {
+		&self.signer
+	}
+}
+
+pub struct SubstratePinningClient {
+	client: SubstrateClient,
+	/// The node id bounded to the client
+	node_id: NodeId,
+	/// A reference to the pinning ring
+	pinning_ring: AtomicRef<PinningRing>,
+}
+
+impl SubstratePinningClient {
+	pub fn new(
+		client: SubstrateClient,
+		// The node id bounded to the client
+		node_id: NodeId,
+		// A reference to the pinning ring
+		pinning_ring: AtomicRef<PinningRing>,
+	) -> Self {
+		SubstratePinningClient { client, node_id, pinning_ring }
 	}
 
 	/// Given a block hash, it returns the list of events that are relevant to the pinning node, based on the pinning ring.
 	pub async fn events_at(&self, block_hash: BlockHash) -> Result<Vec<NodeEvent>> {
 		let events_query = titanh::storage().system().events();
 		// Events at block identified by `block_hash`
-		let events = self.query(&events_query, Some(block_hash)).await?;
+		let events = self.client.query(&events_query, Some(block_hash)).await?;
 
 		let mut pinning_events = Vec::new();
 		for event_record in events.into_iter() {
@@ -78,13 +122,11 @@ impl SubstrateClient {
 			if let Some(event) = event {
 				let is_node_replica =
 					self.pinning_ring.is_key_owned_by_node(event.key, self.node_id)?;
-
 				if is_node_replica {
 					pinning_events.push(event.into())
 				}
 			}
 		}
-
 		Ok(pinning_events)
 	}
 
@@ -96,7 +138,7 @@ impl SubstrateClient {
 	) -> Result<Vec<NodeEvent>> {
 		let mut capsule_events = Vec::new();
 		for block_number in start..=end {
-			let block_hash = self.get_block_hash(block_number).await?;
+			let block_hash = self.client.block_hash(block_number).await?;
 
 			let events = self.events_at(block_hash).await?;
 			capsule_events.extend(events);
@@ -107,27 +149,15 @@ impl SubstrateClient {
 		Ok(capsule_events)
 	}
 
-	/// Returns the block hash of a n associated block number
-	async fn get_block_hash(&self, block_number: BlockNumber) -> Result<BlockHash> {
-		let block_hash_query = titanh::storage().system().block_hash(&block_number);
-		let block_hash = self.query(&block_hash_query, None).await?;
-
-		Ok(block_hash.into())
+	pub fn substrate_client(&self) -> SubstrateClient {
+		self.client.clone()
 	}
 
-	// Returns the state of the ring
-	pub async fn get_ring_state(&self) -> Result<PinningRing> {
-		let ring_state_query = titanh::storage().pinning_committee().pinning_nodes_ring();
-		let hash_nodes_bounded = self.query(&ring_state_query, None).await?;
-		let hash_nodes = hash_nodes_bounded.0.to_vec();
-		let replication_factor_query =
-			titanh::storage().pinning_committee().content_replication_factor();
-		let replication_factor = self.query(&replication_factor_query, None).await?;
-		let nodes_in_ring: PinningRing = PinningRing::new(hash_nodes, replication_factor);
-		Ok(nodes_in_ring)
+	pub fn ring_in_memory(&self) -> Arc<PinningRing> {
+		self.pinning_ring.clone()
 	}
 
-	pub fn get_api(&self) -> &SubstrateApi {
-		&self.api
+	pub fn node_id(&self) -> NodeId {
+		self.node_id.clone()
 	}
 }

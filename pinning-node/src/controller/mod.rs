@@ -1,1 +1,1 @@
-pub mod pinning_control;
+pub mod pinning;

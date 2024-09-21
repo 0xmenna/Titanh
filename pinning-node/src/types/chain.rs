@@ -22,7 +22,7 @@ pub struct BlockHash(Hash);
 
 impl From<BlockHash> for BlockRef<H256> {
 	fn from(block_hash: BlockHash) -> Self {
-		BlockRef::from(block_hash)
+		BlockRef::from(block_hash.0)
 	}
 }
 

@@ -8,8 +8,10 @@ use sp_std::{prelude::*, vec::Vec};
 
 /// The number of pinning nodes that will pin some content
 pub type ReplicationFactor = u32;
-/// The public keys of IPFS nodes associated to a Validator
-pub type PinningNodesKeysOf<T> = Vec<<T as Config>::IPFSNodeId>;
+/// The pinning nodes in the ring
+pub type PinningNodes<T> = Vec<PinningNodeIdOf<T>>;
+/// Ipfs keys of a pinning node
+pub type IpfsKeys<T> = Vec<<T as Config>::IPFSNodeId>;
 // Identifier that points to the content to pin
 pub type ContentIdOf<T> = HashOf<T>;
 /// The ring of pinning nodes

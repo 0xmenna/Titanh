@@ -1,23 +1,20 @@
 use super::NodeEvent;
-use crate::{db::checkpointing::DbCheckpoint as DbClient, ipfs::client::IpfsClient};
+use crate::{
+	db::checkpointing::DbCheckpoint as DbClient,
+	ipfs::client::IpfsClient,
+	utils::{
+		ref_builder::{MutableRef, Ref},
+		traits::{Dispatcher, MutableDispatcher},
+	},
+};
 use anyhow::Result;
 use async_trait::async_trait;
 
-#[async_trait(?Send)]
-pub trait Dispatcher<E> {
-	async fn dispatch(&self, event: &E) -> Result<()>;
-}
+/// Event dispatcher
+pub type EventDispatcher = (Ref<DbClient>, MutableRef<IpfsClient>);
 
 #[async_trait(?Send)]
-pub trait MutableDispatcher<E> {
-	async fn dispatch(&mut self, event: &E) -> Result<()>;
-}
-
-/// All dispatchers
-pub type EventDispatcher<'a> = (&'a DbClient, &'a mut IpfsClient);
-
-#[async_trait(?Send)]
-impl<'a> MutableDispatcher<NodeEvent> for EventDispatcher<'a> {
+impl MutableDispatcher<NodeEvent> for EventDispatcher {
 	async fn dispatch(&mut self, event: &NodeEvent) -> Result<()> {
 		match event {
 			// Checkpointing event
@@ -26,7 +23,8 @@ impl<'a> MutableDispatcher<NodeEvent> for EventDispatcher<'a> {
 			},
 			// Pinning event
 			NodeEvent::Pinning(keyed_pinning_event) => {
-				let dispatch_res = self.1.dispatch(keyed_pinning_event).await;
+				let mut ipfs_client = self.1.borrow_mut();
+				let dispatch_res = ipfs_client.dispatch(keyed_pinning_event).await;
 				debug_assert!(dispatch_res.is_ok());
 			},
 		};

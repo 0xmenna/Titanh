@@ -1,0 +1,11 @@
+{
+  "seed_phrase": "pink ugly throw certain domain pudding soul document exhibit indicate second eternal",
+  "chain_node_endpoint": "ws://127.0.0.1:9944",
+  "failure_retry" :3,
+  "ipfs_peers": [
+    {
+      "rpc_url": "http://127.0.0.1:5001",
+      "peer_pubkey": "0xc20b1ac5a93d40f6751067dab7c801f7c5d7f41bb5d397adfc766434f410ef55"
+    }
+  ]
+}

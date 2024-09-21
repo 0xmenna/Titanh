@@ -4,7 +4,7 @@ use codec::{Decode, Encode};
 use primitives::BlockNumber;
 use sled::Db;
 
-use crate::types::events::dispatcher::Dispatcher;
+use crate::utils::traits::Dispatcher;
 
 pub type BarrierCheckpoint = BlockNumber;
 

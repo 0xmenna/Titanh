@@ -1,15 +1,13 @@
-use crate::types::events::dispatcher::{Dispatcher, MutableDispatcher};
+use crate::types::cid::Cid;
 use crate::types::events::{KeyedPinningEvent, PinningEvent};
-use crate::types::ipfs::Cid;
+use crate::utils::traits::MutableDispatcher;
 use anyhow::Result;
 use async_trait::async_trait;
 use ipfs_api_backend_hyper::Error as IpfsError;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient as ApiIpfsClient};
-use rand::rngs::SmallRng;
+use rand::rngs::SmallRng as Randomness;
 use rand::{Rng, SeedableRng};
 use std::future::Future;
-
-const MAX_REPLICAS: usize = 10;
 
 pub struct IpfsClient {
 	/// The IPFS client replicas
@@ -17,36 +15,14 @@ pub struct IpfsClient {
 	/// The number of retries for pinning operations
 	failure_retry: u8,
 	/// The random number generator used for selecting a random replica
-	rng: SmallRng,
-}
-
-enum PinOp {
-	Add,
-	Remove,
+	rng: Randomness,
 }
 
 impl IpfsClient {
-	// TODO: Build replicas from a file config
-	pub fn from_replicas() -> Result<Self> {
-		// dummy config
-		let mut replicas = Vec::new();
-		replicas.push(ApiIpfsClient::default());
-		let failure_retry = 3;
-		// end dummy config
-
-		if replicas.is_empty() {
-			return Err(anyhow::anyhow!("No replicas"));
-		}
-
-		if replicas.len() > MAX_REPLICAS {
-			return Err(anyhow::anyhow!("Too many replicas"));
-		}
-
-		let rng = SmallRng::from_entropy();
-
-		Ok(Self { replicas, failure_retry, rng })
+	pub fn new(replicas: Vec<ApiIpfsClient>, failure_retry: u8) -> Self {
+		let rng = Randomness::from_entropy();
+		Self { replicas, failure_retry, rng }
 	}
-
 	// Add a pin
 	pub async fn pin_add(&mut self, cid: &Cid) {
 		self.pinning_op(cid, PinOp::Add).await
@@ -101,6 +77,11 @@ impl IpfsClient {
 			}
 		}
 	}
+}
+
+enum PinOp {
+	Add,
+	Remove,
 }
 
 #[async_trait(?Send)]
