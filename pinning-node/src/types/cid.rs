@@ -1,4 +1,4 @@
-use super::chain::titanh::runtime_types::bounded_collections::bounded_vec::BoundedVec;
+use api::titanh::runtime_types::bounded_collections::bounded_vec::BoundedVec;
 
 #[derive(Clone)]
 pub struct Cid(String);

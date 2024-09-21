@@ -10,7 +10,7 @@ members = [
     "substrate/node",
     "substrate/pallets/capsules", "substrate/pallets/app-registrar", "substrate/pallets/pinning-committee",
     "substrate/runtime",
-	"pinning-node", "substrate/primitives",
+	"pinning-node", "substrate/primitives", "api",
 	"cli/ipfs-cli-key",
 ]
 resolver = "2"

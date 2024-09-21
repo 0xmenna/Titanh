@@ -22,8 +22,10 @@ clap = { version = "4.4.2", features = ["derive"] }
 tokio = { version = "1.37.0", features = ["full"] }
 async-trait = "0.1.82"
 rand = "0.8.5"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
-# Substrate dependencies
+# substrate
 codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [
 	"derive",
 ] }
@@ -31,18 +33,13 @@ sp-core = { version = "31.0.0", features = ["full_crypto", "serde"] }
 sp-crypto-hashing = "0.1.0"
 subxt = { version = "0.37.0", features = ["substrate-compat"] }
 
-# KV database
+# kv database
 sled = "0.34"
 
-# Serde dependencies
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-
-
-# IPFS dependencies
+# ipfs
 ipfs-api-backend-hyper = "0.6"
 
-# Utils
+# utils
 env_logger = "0.11"
 log = "0.4.14"
 url = "2.5.0"
@@ -50,6 +47,9 @@ anyhow = "1.0.86"
 hex-literal = "0.4.1"
 base64 = "0.22.1"
 hex = "0.4.3"
+
+# local
+api = { path = "../api" }
 
 
 

@@ -1,15 +1,13 @@
 use crate::{
 	types::{
-		chain::{
-			titanh::{self},
-			BlockHash, BlockNumber, NodeId, Rpc, Signer, SubstrateApi,
-		},
+		chain::{BlockHash, BlockNumber, NodeId, Rpc, Signer, SubstrateApi},
 		events::{self, NodeEvent},
 		ring::PinningRing,
 	},
 	utils::ref_builder::AtomicRef,
 };
 use anyhow::Result;
+use api::titanh;
 use subxt::{storage::Address, utils::Yes};
 
 /// Substrate client with a default configuration
