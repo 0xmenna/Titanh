@@ -1,12 +1,12 @@
-use primitives::Hash;
 use sp_core::H256;
 use subxt::backend::legacy::LegacyRpcMethods;
 use subxt::{blocks::BlockRef, tx::PairSigner, OnlineClient, SubstrateConfig};
 
 /// Module for accessing all blockchain related types. It is based on the encoded metadata provided at `runtime_metadata_path`
-#[subxt::subxt(runtime_metadata_path = "metadata.scale")]
+#[subxt::subxt(runtime_metadata_path = "config/chain-metadata.scale")]
 pub mod titanh {}
 
+pub type BlockNumber = titanh::system::storage::types::number::Number;
 /// The key pair used by the validator
 pub type ValidatorKeyPair = sp_core::sr25519::Pair;
 /// The substrate api
@@ -16,9 +16,9 @@ pub type Signer = PairSigner<SubstrateConfig, ValidatorKeyPair>;
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
 /// A pinning node's identifier in the ring
-pub type NodeId = Hash;
+pub type NodeId = H256;
 
-pub struct BlockHash(Hash);
+pub struct BlockHash(H256);
 
 impl From<BlockHash> for BlockRef<H256> {
 	fn from(block_hash: BlockHash) -> Self {
@@ -26,10 +26,10 @@ impl From<BlockHash> for BlockRef<H256> {
 	}
 }
 
-impl From<Hash> for BlockHash {
+impl From<H256> for BlockHash {
 	fn from(h: H256) -> Self {
 		BlockHash(h)
 	}
 }
 
-pub type CapsuleKey = Hash;
+pub type CapsuleKey = H256;

@@ -1,6 +1,5 @@
-use super::events::NodeEvent;
+use super::{chain::BlockNumber, events::NodeEvent};
 use anyhow::Result;
-use primitives::BlockNumber;
 use tokio::sync::mpsc::{
 	channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
 };

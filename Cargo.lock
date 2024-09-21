@@ -5993,7 +5993,6 @@ dependencies = [
  "ipfs-api-backend-hyper",
  "log",
  "parity-scale-codec",
- "primitives",
  "rand",
  "serde",
  "serde_json",

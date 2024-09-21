@@ -2,7 +2,7 @@ use crate::{
 	types::{
 		chain::{
 			titanh::{self},
-			BlockHash, NodeId, Rpc, Signer, SubstrateApi,
+			BlockHash, BlockNumber, NodeId, Rpc, Signer, SubstrateApi,
 		},
 		events::{self, NodeEvent},
 		ring::PinningRing,
@@ -10,8 +10,6 @@ use crate::{
 	utils::ref_builder::AtomicRef,
 };
 use anyhow::Result;
-use primitives::BlockNumber;
-use std::sync::Arc;
 use subxt::{storage::Address, utils::Yes};
 
 /// Substrate client with a default configuration
@@ -149,15 +147,15 @@ impl SubstratePinningClient {
 		Ok(capsule_events)
 	}
 
-	pub fn substrate_client(&self) -> SubstrateClient {
-		self.client.clone()
+	pub fn client(&self) -> &SubstrateClient {
+		&self.client
 	}
 
-	pub fn ring_in_memory(&self) -> Arc<PinningRing> {
+	pub fn ring(&self) -> AtomicRef<PinningRing> {
 		self.pinning_ring.clone()
 	}
 
 	pub fn node_id(&self) -> NodeId {
-		self.node_id.clone()
+		self.node_id
 	}
 }

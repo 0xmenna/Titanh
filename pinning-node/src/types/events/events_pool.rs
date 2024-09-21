@@ -1,16 +1,16 @@
+use super::{dispatcher::EventDispatcher, NodeEvent};
 use crate::{
 	db::checkpointing::{BarrierCheckpoint, DbCheckpoint},
 	ipfs::client::IpfsClient,
 	substrate::client::SubstratePinningClient,
 	types::channels::{self, PinningReadingHandles, PinningWritingHandles},
-	utils::{ref_builder::AtomicRef, traits::MutableDispatcher},
+	utils::{
+		ref_builder::{AtomicRef, MutableRef, Ref},
+		traits::MutableDispatcher,
+	},
 };
 use anyhow::Result;
-use primitives::BlockNumber;
-use std::{cell::RefCell, rc::Rc, sync::Arc};
 use tokio::task::JoinHandle;
-
-use super::{dispatcher::EventDispatcher, NodeEvent};
 
 // Maybe it needs a channel rather than a vector of capsule events
 pub struct NodeEventsPool {
@@ -30,9 +30,9 @@ pub struct NodeEventsPool {
 
 impl NodeEventsPool {
 	pub fn new(
-		client_api: Arc<SubstratePinningClient>,
-		db: Rc<DbCheckpoint>,
-		ipfs: Rc<RefCell<IpfsClient>>,
+		client_api: AtomicRef<SubstratePinningClient>,
+		db: Ref<DbCheckpoint>,
+		ipfs: MutableRef<IpfsClient>,
 	) -> Self {
 		// Create handles to write and read from the channel
 		let (writing_handles, reading_handles) = channels::build_channels();
@@ -58,12 +58,11 @@ impl NodeEventsPool {
 
 		// Spawn a new task to subscribe to new capsule events.
 		let subscription = tokio::spawn(async move {
-			let mut blocks_sub =
-				client_api.substrate_client().api().blocks().subscribe_finalized().await?;
+			let mut blocks_sub = client_api.client().api().blocks().subscribe_finalized().await?;
 
 			while let Some(block) = blocks_sub.next().await {
 				let block = block?;
-				let block_num = block.number() as BlockNumber;
+				let block_num = block.number();
 				if !writing_handles.is_block_number_sent() {
 					// Send the first block number to the channel so the main thread knows the upper bound for event recovery.
 					writing_handles.send_block_number(block_num).await?;

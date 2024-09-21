@@ -7,10 +7,10 @@ homepage = "https://substrate.io"
 
 [workspace]
 members = [
-    "node",
-    "pallets/capsules", "pallets/app-registrar", "pallets/pinning-committee",
-    "runtime",
-	"pinning-node", "primitives",
+    "substrate/node",
+    "substrate/pallets/capsules", "substrate/pallets/app-registrar", "substrate/pallets/pinning-committee",
+    "substrate/runtime",
+	"pinning-node", "substrate/primitives",
 	"cli/ipfs-cli-key",
 ]
 resolver = "2"

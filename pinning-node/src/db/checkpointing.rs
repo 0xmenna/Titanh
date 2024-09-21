@@ -1,10 +1,8 @@
+use crate::{types::chain::BlockNumber, utils::traits::Dispatcher};
 use anyhow::Result;
 use async_trait::async_trait;
 use codec::{Decode, Encode};
-use primitives::BlockNumber;
 use sled::Db;
-
-use crate::utils::traits::Dispatcher;
 
 pub type BarrierCheckpoint = BlockNumber;
 
