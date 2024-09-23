@@ -11,7 +11,7 @@ members = [
     "substrate/pallets/capsules", "substrate/pallets/app-registrar", "substrate/pallets/pinning-committee",
     "substrate/runtime",
 	"pinning-node", "substrate/primitives", "api",
-	"cli/ipfs-cli-key",
+	"cli/ipfs-cli-key", "example",
 ]
 resolver = "2"
 [profile.release]

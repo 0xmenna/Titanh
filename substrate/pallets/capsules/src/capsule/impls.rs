@@ -4,12 +4,14 @@ use crate::{
 	Capsules, Config, Container, DeletionCompletion, Error, Event, Follower, FollowersStatus,
 	IdComputation, OwnersWaitingApprovals, Ownership, Pallet,
 };
-use common_types::{BlockNumberFor, CidFor, ContentSize};
+use common_types::BoundedString;
+use common_types::{BlockNumberFor, ContentSize};
 use frame_support::ensure;
 use pallet_app_registrar::PermissionsApp;
 use sp_core::Get;
 use sp_runtime::DispatchResult;
 use sp_runtime::Saturating;
+use sp_std::vec::Vec;
 
 /// Capsule related logic
 impl<T: Config> Pallet<T> {
@@ -17,7 +19,7 @@ impl<T: Config> Pallet<T> {
 		who: T::AccountId,
 		app: AppIdFor<T>,
 		maybe_other_owner: Option<T::AccountId>,
-		capsule: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
+		capsule: CapsuleUploadData<BlockNumberFor<T>>,
 	) -> DispatchResult {
 		ensure!(
 			T::Permissions::has_account_permissions(&who, app.clone()),
@@ -134,14 +136,14 @@ impl<T: Config> Pallet<T> {
 	pub fn update_capsule_content_from(
 		who: T::AccountId,
 		capsule_id: CapsuleIdFor<T>,
-		cid: CidFor<T::CidLength>,
+		cid: Vec<u8>,
 		size: ContentSize,
 	) -> DispatchResult {
 		let mut capsule = Self::capsule_from_owner(&who, &capsule_id)?;
 		Self::ensure_capsule_liveness(&capsule)?;
 		// change the capsule cid and size
-		let old_cid = capsule.cid.clone();
-		capsule.cid = cid.clone();
+		let old_cid = capsule.cid.clone().to_vec();
+		capsule.cid = BoundedString::from_vec(cid.clone()).map_err(|_| Error::<T>::BadCid)?;
 		capsule.size = size;
 
 		Capsules::<T>::insert(&capsule_id, capsule);
@@ -237,7 +239,7 @@ impl<T: Config> Pallet<T> {
 		capsule_id: CapsuleIdFor<T>,
 		app_id: AppIdFor<T>,
 		ownership: Ownership<T::AccountId>,
-		metadata: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
+		metadata: CapsuleUploadData<BlockNumberFor<T>>,
 	) -> DispatchResult {
 		ensure!(!Self::capsule_exists(&capsule_id), Error::<T>::CapsuleIdAlreadyExists);
 
@@ -251,7 +253,7 @@ impl<T: Config> Pallet<T> {
 		Self::deposit_event(Event::<T>::CapsuleUploaded {
 			id: capsule_id,
 			app_id: capsule_metadata.app_data.app_id,
-			cid: capsule_metadata.cid,
+			cid: capsule_metadata.cid.to_vec(),
 			size: capsule_metadata.size,
 			app_data: capsule_metadata.app_data.data.to_vec(),
 			ownership,
@@ -398,7 +400,7 @@ impl<T: Config> Pallet<T> {
 		ensure!(capsule.status == Status::FinalDeletion, Error::<T>::IncorrectCapsuleStatus);
 
 		Capsules::<T>::remove(&capsule_id);
-		Self::deposit_event(Event::<T>::CapsuleDeleted { capsule_id, cid: capsule.cid });
+		Self::deposit_event(Event::<T>::CapsuleDeleted { capsule_id, cid: capsule.cid.to_vec() });
 
 		Ok(())
 	}

@@ -71,9 +71,9 @@ pub enum Status {
 
 /// Data to upload
 #[derive(Encode, Decode, Clone, Eq, PartialEq, RuntimeDebug, TypeInfo)]
-pub struct CapsuleUploadData<Cid, BlockNumber> {
+pub struct CapsuleUploadData<BlockNumber> {
 	/// IPFS cid that points to the content
-	pub cid: Cid,
+	pub cid: Vec<u8>,
 	/// Size in bytes of the underline content
 	pub size: ContentSize,
 	/// The block number at which pinning nodes will stop pinning
@@ -87,14 +87,14 @@ pub struct CapsuleUploadData<Cid, BlockNumber> {
 pub struct CapsuleMetaBuilder<T: Config> {
 	app_id: AppIdFor<T>,
 	owners: Vec<T::AccountId>,
-	upload_data: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
+	upload_data: CapsuleUploadData<BlockNumberFor<T>>,
 }
 
 impl<T: Config> CapsuleMetaBuilder<T> {
 	pub fn new(
 		app_id: AppIdFor<T>,
 		owners: Vec<T::AccountId>,
-		upload_data: CapsuleUploadData<CidFor<T::CidLength>, BlockNumberFor<T>>,
+		upload_data: CapsuleUploadData<BlockNumberFor<T>>,
 	) -> Self {
 		Self { app_id, owners, upload_data }
 	}
@@ -102,7 +102,8 @@ impl<T: Config> CapsuleMetaBuilder<T> {
 	pub fn build(self) -> Result<CapsuleMetadataOf<T>, DispatchError> {
 		Ok(CapsuleMetadata {
 			status: Default::default(),
-			cid: self.upload_data.cid,
+			cid: BoundedString::from_vec(self.upload_data.cid)
+				.map_err(|_| crate::Error::<T>::BadCid)?,
 			size: self.upload_data.size,
 			ending_retention_block: self.upload_data.ending_retention_block,
 			owners: self.owners.try_into().map_err(|_| crate::Error::<T>::TooManyOwners)?,

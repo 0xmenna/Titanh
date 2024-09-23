@@ -1,13 +1,11 @@
-use api::titanh::runtime_types::bounded_collections::bounded_vec::BoundedVec;
-
 #[derive(Clone)]
 pub struct Cid(String);
 
-impl TryFrom<BoundedVec<u8>> for Cid {
+impl TryFrom<Vec<u8>> for Cid {
 	type Error = anyhow::Error;
 
-	fn try_from(cid: BoundedVec<u8>) -> Result<Self, Self::Error> {
-		let cid = std::str::from_utf8(&cid.0)?;
+	fn try_from(cid: Vec<u8>) -> Result<Self, Self::Error> {
+		let cid = std::str::from_utf8(&cid)?;
 		Ok(Cid(cid.to_string()))
 	}
 }

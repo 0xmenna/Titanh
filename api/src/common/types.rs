@@ -5,11 +5,11 @@ use subxt::{blocks::BlockRef, tx::PairSigner, OnlineClient, SubstrateConfig};
 
 pub type BlockNumber = titanh::system::storage::types::number::Number;
 /// The key pair used by the validator
-pub type ValidatorKeyPair = sp_core::sr25519::Pair;
+pub type KeyPair = sp_core::sr25519::Pair;
 /// The substrate api
 pub type SubstrateApi = OnlineClient<SubstrateConfig>;
 /// Signer used in the api transactions
-pub type Signer = PairSigner<SubstrateConfig, ValidatorKeyPair>;
+pub type Signer = PairSigner<SubstrateConfig, KeyPair>;
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
 /// A pinning node's identifier in the ring

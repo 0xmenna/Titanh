@@ -1,0 +1,18 @@
+{
+  "chain_rpc": "ws://localhost:9944",
+  "seed": "firm cabin blast spring any valid flip treat quit twenty interest dose",
+  "ipfs_rpc": "http://localhost:5001",
+  "certificate": {
+    "id": {
+      "university_id": "uniroma2",
+      "student_id": "0774123"
+    },
+    "student_name": "Mario Rossi",
+    "degree_program": "Computer Engineering",
+    "graduation_year": "2023/2024",
+    "grade": "110/110",
+    "path": "data/config.json"
+  }
+}
+
+

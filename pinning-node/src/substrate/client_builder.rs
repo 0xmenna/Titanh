@@ -1,6 +1,6 @@
 use super::client::{SubstrateClient, SubstratePinningClient};
 use crate::{
-	types::chain::{NodeId, Rpc, SubstrateApi, ValidatorKeyPair},
+	types::chain::{KeyPair as ValidatorKeyPair, NodeId, Rpc, SubstrateApi},
 	utils::{config::Config, ref_builder, traits::ClientBuilder},
 };
 use async_trait::async_trait;

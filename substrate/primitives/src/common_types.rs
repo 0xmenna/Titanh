@@ -34,7 +34,7 @@ pub trait Balance:
 }
 
 /// A type for representing an IPFS CID
-pub type CidFor<S> = BoundedVec<u8, S>;
+pub type CidFor<S> = BoundedString<S>;
 
 /// The type in which the chain records hashes
 pub type HashOf<T> = <T as frame_system::Config>::Hash;
