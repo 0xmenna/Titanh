@@ -12,8 +12,6 @@ pub type SubstrateApi = OnlineClient<SubstrateConfig>;
 pub type Signer = PairSigner<SubstrateConfig, KeyPair>;
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
-/// A pinning node's identifier in the ring
-pub type NodeId = H256;
 
 pub struct BlockHash(H256);
 
@@ -28,5 +26,3 @@ impl From<H256> for BlockHash {
 		BlockHash(h)
 	}
 }
-
-pub type CapsuleKey = H256;

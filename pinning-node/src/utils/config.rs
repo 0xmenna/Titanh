@@ -1,5 +1,5 @@
-use crate::types::chain::NodeId;
 use anyhow::Result;
+use api::pinning_committee_types::NodeId;
 use serde::Deserialize;
 use sp_core::{Blake2Hasher, Hasher};
 use std::fs;

@@ -1,11 +1,7 @@
-use super::client::{SubstrateClient, SubstratePinningClient};
-use crate::{
-	types::chain::{KeyPair as ValidatorKeyPair, NodeId, Rpc, SubstrateApi},
-	utils::{config::Config, ref_builder, traits::ClientBuilder},
-};
+use super::client::SubstratePinningClient;
+use crate::utils::{config::Config, ref_builder, traits::ClientBuilder};
+use api::{pinning_committee_types::NodeId, TitanhApiBuilder};
 use async_trait::async_trait;
-use sp_core::Pair;
-use subxt::{backend::rpc::RpcClient, tx::PairSigner};
 
 pub struct SubstratePinningConfig<'a> {
 	/// The node id of the pinning node
@@ -41,30 +37,17 @@ impl<'a> ClientBuilder<'a, SubstratePinningClient> for SubstrateClientBuilder<'a
 	}
 
 	async fn build(self) -> SubstratePinningClient {
-		// Derive the key pair from the seed phrase (mnemonic)
-		let key_pair = ValidatorKeyPair::from_string(self.config.seed_phrase, self.config.password)
-			.expect("Invalid key pair");
+		let api = TitanhApiBuilder::rpc(&self.config.rpc_url)
+			.seed(&self.config.seed_phrase)
+			.build()
+			.await;
 
-		// Create a signer using the key pair
-		let signer = PairSigner::new(key_pair);
-		let rpc_client = RpcClient::from_url(self.config.rpc_url).await.expect("No RPC client");
-
-		// Use this to construct the RPC methods
-		let rpc = Rpc::new(rpc_client.clone());
-
-		// We can use the same client to drive our full Subxt interface
-		let api = SubstrateApi::from_rpc_client(rpc_client.clone())
-			.await
-			.expect("Invalid Substrate API");
-
-		let client = SubstrateClient::new(api, rpc, signer);
-
-		let ring = client
-			.ring_state()
-			.await
-			.expect("Ring is expected to be initialized during substrate client initialization");
+		let ring =
+			api.pinning_committee().pinning_ring().await.expect(
+				"Ring is expected to be initialized during substrate client initialization",
+			);
 		let ring = ref_builder::create_atomic_ref(ring);
 
-		SubstratePinningClient::new(client, self.config.node_id, ring)
+		SubstratePinningClient::new(api, self.config.node_id, ring)
 	}
 }

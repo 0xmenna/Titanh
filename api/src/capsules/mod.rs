@@ -12,7 +12,7 @@ use sp_core::H256;
 use std::io::Cursor;
 use types::PutCapsuleOpts;
 
-struct CapsulesConfig {
+pub struct CapsulesConfig {
 	ipfs: IpfsClient,
 	app: App,
 }

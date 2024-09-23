@@ -1,4 +1,8 @@
+use sp_core::H256;
+
 use crate::titanh::runtime_types::pallet_capsules::types::FollowersStatus;
+
+pub type CapsuleKey = H256;
 
 const DEFAULT_CAPSULE_RETENTION_BLOCKS: u32 = 864_000; // 1 month
 

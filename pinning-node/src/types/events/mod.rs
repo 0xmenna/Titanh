@@ -1,6 +1,10 @@
-use super::{chain::CapsuleKey, cid::Cid};
 use crate::db::checkpointing::BarrierCheckpoint;
-use api::titanh::{capsules::Event, runtime_types::titanh_runtime::RuntimeEvent};
+use api::{
+	capsules_types::CapsuleKey,
+	titanh::{capsules::Event, runtime_types::titanh_runtime::RuntimeEvent},
+};
+
+use super::cid::Cid;
 
 pub mod dispatcher;
 pub mod events_pool;

@@ -1,5 +1,5 @@
 use crate::{
-	types::{KeyPair, Rpc, SubstrateApi},
+	common_types::{KeyPair, Rpc, SubstrateApi},
 	TitanhApi,
 };
 use sp_core::Pair;

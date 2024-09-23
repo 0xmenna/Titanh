@@ -1,13 +1,5 @@
-use super::{types::PutCapsuleOpts, CapsulesApi, CapsulesConfig};
-use crate::titanh::{
-	self, capsules::calls::types::UploadCapsule,
-	runtime_types::pallet_capsules::capsule::types::CapsuleUploadData,
-};
+use super::{CapsulesApi, CapsulesConfig};
 use anyhow::Result;
-use codec::Encode;
-use ipfs_api_backend_hyper::{request::Add, IpfsApi};
-use std::io::Cursor;
-use subxt::tx::DefaultPayload;
 
 impl CapsulesApi<'_> {
 	// ensures the api configuration is set

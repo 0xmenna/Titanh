@@ -1,8 +1,10 @@
-use super::{chain::BlockNumber, events::NodeEvent};
 use anyhow::Result;
+use api::common_types::BlockNumber;
 use tokio::sync::mpsc::{
 	channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
 };
+
+use super::events::NodeEvent;
 
 pub fn build_channels() -> (PinningWritingHandles, PinningReadingHandles) {
 	// Channel to send a single block number

@@ -7,7 +7,6 @@ mod types;
 mod utils;
 
 #[tokio::main]
-
 async fn main() -> Result<()> {
 	// read app configuration
 	let config = Config::from_json();

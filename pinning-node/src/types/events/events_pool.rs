@@ -58,7 +58,8 @@ impl NodeEventsPool {
 
 		// Spawn a new task to subscribe to new capsule events.
 		let subscription = tokio::spawn(async move {
-			let mut blocks_sub = client_api.client().api().blocks().subscribe_finalized().await?;
+			let mut blocks_sub =
+				client_api.api().substrate_api.blocks().subscribe_finalized().await?;
 
 			while let Some(block) = blocks_sub.next().await {
 				let block = block?;

@@ -1,5 +1,9 @@
-use super::chain::{CapsuleKey, NodeId};
+use crate::capsules_types::CapsuleKey;
 use anyhow::Result;
+use sp_core::H256;
+
+/// A pinning node's identifier in the ring
+pub type NodeId = H256;
 
 /// The pinning ring
 pub struct PinningRing {

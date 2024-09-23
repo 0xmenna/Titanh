@@ -1,10 +1,7 @@
 use anyhow::Result;
 use app_registrar::AppRegistrarApi;
 use capsules::CapsulesApi;
-use common::{
-	titanh::Call,
-	types::{BlockHash, BlockNumber, Rpc, Signer, SubstrateApi},
-};
+use common::types::{BlockHash, BlockNumber, Rpc, Signer, SubstrateApi};
 use pinning_committee::PinningCommitteeApi;
 use sp_core::H256;
 use subxt::{blocks::ExtrinsicEvents, storage::Address, tx::Payload, utils::Yes, SubstrateConfig};
@@ -15,8 +12,11 @@ mod capsules;
 mod common;
 mod pinning_committee;
 
+// Export
 pub use builder::TitanhApiBuilder;
-pub use common::{titanh, types};
+pub use capsules::types as capsules_types;
+pub use common::{titanh, types as common_types};
+pub use pinning_committee::types as pinning_committee_types;
 
 /// Titanh api
 #[derive(Clone)]
@@ -60,20 +60,8 @@ impl TitanhApi {
 		Ok(result)
 	}
 
-	// Returns the state of the ring
-	// pub async fn ring_state(&self) -> Result<PinningRing> {
-	// 	let ring_state_query = titanh::storage().pinning_committee().pinning_nodes_ring();
-	// 	let hash_nodes_bounded = self.query(&ring_state_query, None).await?;
-	// 	let hash_nodes = hash_nodes_bounded.0.to_vec();
-	// 	let replication_factor_query =
-	// 		titanh::storage().pinning_committee().content_replication_factor();
-	// 	let replication_factor = self.query(&replication_factor_query, None).await?;
-	// 	let nodes_in_ring: PinningRing = PinningRing::new(hash_nodes, replication_factor);
-	// 	Ok(nodes_in_ring)
-	// }
-
 	/// Returns the block hash of a n associated block number
-	async fn block_hash(&self, block_number: BlockNumber) -> Result<BlockHash> {
+	pub async fn block_hash(&self, block_number: BlockNumber) -> Result<BlockHash> {
 		let block_hash_query = titanh::storage().system().block_hash(&block_number);
 		let block_hash = self.query(&block_hash_query, None).await?;
 
