@@ -1,4 +1,6 @@
-#[derive(Clone)]
+use codec::{Decode, Encode};
+
+#[derive(Clone, Encode, Decode)]
 pub struct Cid(String);
 
 impl TryFrom<Vec<u8>> for Cid {

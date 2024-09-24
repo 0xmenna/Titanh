@@ -13,6 +13,13 @@ pub type Signer = PairSigner<SubstrateConfig, KeyPair>;
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
 
+#[derive(Clone)]
+pub struct BlockInfo {
+	pub number: BlockNumber,
+	pub hash: BlockHash,
+}
+
+#[derive(Clone)]
 pub struct BlockHash(H256);
 
 impl From<BlockHash> for BlockRef<H256> {

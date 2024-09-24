@@ -2,7 +2,7 @@ use crate::{
 	db::checkpointing::DbCheckpoint,
 	ipfs::{client::IpfsClient, client_builder::IpfsClientBuilder},
 	substrate::{client::SubstratePinningClient, client_builder::SubstrateClientBuilder},
-	types::events::events_pool::NodeEventsPool,
+	types::events::{events_pool::NodeEventsPool, EventType},
 	utils::{
 		config::Config,
 		ref_builder::{self, AtomicRef, MutableRef, Ref},
@@ -43,9 +43,10 @@ impl PinningNodeController {
 	}
 
 	pub async fn execute(mut self) {
-		let event_producing_handle = self.events_pool.produce_capsule_events().await.unwrap();
+		let event_producing_handle =
+			self.events_pool.produce_events(EventType::Capsules).await.unwrap();
 
-		self.events_pool.consume_capsule_events().await.unwrap();
+		self.events_pool.consume_events().await.unwrap();
 
 		// Wait because node continues to handle events in the background
 		let _ = event_producing_handle.await.unwrap();

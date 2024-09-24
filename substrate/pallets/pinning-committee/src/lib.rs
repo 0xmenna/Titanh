@@ -157,6 +157,7 @@ pub mod pallet {
 		PinningNodeRemoval {
 			validator: T::ValidatorId,
 			pinning_node: PinningNodeIdOf<T>,
+			db_keys: Vec<u8>,
 		},
 		/// An unassigned ipfs node has been removed
 		WaitingIpfsNodeRemoval {
@@ -320,13 +321,16 @@ pub mod pallet {
 			Ok(())
 		}
 
-		/// Removes an ipfs node of a pinning node associated to a validator
+		/// Removes a pinning node associated to a validator and all its ipfs replicas
+		/// The pinning node sends all its keys (into an encoded version) because they must be managed by a new pinning node
 		#[pallet::call_index(4)]
 		#[pallet::weight(Weight::from_parts(100_000, 0))]
 		pub fn rm_pinning_node(
 			origin: OriginFor<T>,
 			// The position in the ring of the pinning node key to which the ipfs node is assigned
 			pinning_node: PinningNodeIdOf<T>,
+			// An encoded version of the leaving node's db keys that must be managed by a new pinning node
+			db_keys: Vec<u8>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed by a validator.
 			let validator = Self::enure_validator(origin)?;
@@ -352,7 +356,11 @@ pub mod pallet {
 			// Remove the ipfs keys associated to the pinning node
 			PinningNodeIpfsKeys::<T>::remove(&pinning_node);
 
-			Self::deposit_event(Event::<T>::PinningNodeRemoval { validator, pinning_node });
+			Self::deposit_event(Event::<T>::PinningNodeRemoval {
+				validator,
+				pinning_node,
+				db_keys,
+			});
 
 			Ok(())
 		}

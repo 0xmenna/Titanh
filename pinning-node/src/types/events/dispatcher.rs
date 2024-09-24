@@ -18,7 +18,7 @@ impl MutableDispatcher<NodeEvent> for EventDispatcher {
 	async fn dispatch(&mut self, event: &NodeEvent) -> Result<()> {
 		match event {
 			// Checkpointing event
-			NodeEvent::BlockCheckpoint(checkpoint_event) => {
+			NodeEvent::CapsulesBarrier(checkpoint_event) => {
 				self.0.dispatch(checkpoint_event).await?;
 			},
 			// Pinning event

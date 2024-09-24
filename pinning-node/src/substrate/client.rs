@@ -1,71 +1,118 @@
 use crate::{
-	types::events::{self, NodeEvent},
-	utils::ref_builder::AtomicRef,
+	types::{
+		events::{self, EventType, NodeEvent, RingUpdateEvent, TitanhEvent},
+		keytable::{FaultTolerantBTreeMap, KeyMap},
+	},
+	utils::{
+		ref_builder::{AtomicRef, MutableRef},
+		traits::MutableDispatcher,
+	},
 };
 use anyhow::Result;
 use api::{
-	common_types::{BlockHash, BlockNumber},
+	common_types::{BlockHash, BlockInfo, BlockNumber},
 	pinning_committee_types::{NodeId, PinningRing},
 	titanh, TitanhApi,
 };
+use async_trait::async_trait;
+use codec::Decode;
 
 pub struct SubstratePinningClient {
 	api: TitanhApi,
 	/// The node id bounded to the client
 	node_id: NodeId,
 	/// A reference to the pinning ring
-	pinning_ring: AtomicRef<PinningRing>,
+	ring: MutableRef<PinningRing>,
 }
 
 impl SubstratePinningClient {
-	pub fn new(
-		api: TitanhApi,
-		// The node id bounded to the client
-		node_id: NodeId,
-		// A reference to the pinning ring
-		pinning_ring: AtomicRef<PinningRing>,
-	) -> Self {
-		SubstratePinningClient { api, node_id, pinning_ring }
+	pub fn new(api: TitanhApi, node_id: NodeId, ring: MutableRef<PinningRing>) -> Self {
+		SubstratePinningClient { api, node_id, ring }
 	}
 
 	/// Given a block hash, it returns the list of events that are relevant to the pinning node, based on the pinning ring.
-	pub async fn events_at(&self, block_hash: BlockHash) -> Result<Vec<NodeEvent>> {
+	pub async fn events_at(&mut self, block: BlockInfo) -> Result<Vec<NodeEvent>> {
 		let events_query = titanh::storage().system().events();
 		// Events at block identified by `block_hash`
-		let events = self.api.query(&events_query, Some(block_hash)).await?;
+		let runtime_events = self.api.query(&events_query, Some(block.hash)).await?;
 
-		let mut pinning_events = Vec::new();
-		for event_record in events.into_iter() {
-			let event = events::try_pinning_event_from_runtime(event_record.event);
+		let mut events = Vec::new();
+		for event_record in runtime_events.into_iter() {
+			let event = events::try_event_from_runtime(event_record.event);
 
 			if let Some(event) = event {
-				let is_node_replica =
-					self.pinning_ring.is_key_owned_by_node(event.key, self.node_id)?;
-				if is_node_replica {
-					pinning_events.push(event.into())
-				}
+				match event {
+					TitanhEvent::Capsules(capsule_evenet) => {
+						// If the pinning node is responsible for the key, then we get the partition number to which the key belongs
+						let maybe_partition = self
+							.ring
+							.borrow()
+							.key_node_partition(capsule_evenet.key, self.node_id)?;
+
+						if let Some(partition) = maybe_partition {
+							let pin_event = NodeEvent::pinning_event(partition, capsule_evenet);
+							events.push(pin_event);
+						}
+					},
+					TitanhEvent::PinningCommittee(ring_event) => match ring_event {
+						RingUpdateEvent::NewPinningNode(node_id) => {
+							let update = self.ring.borrow_mut().insert_node(node_id.clone())?;
+
+							let key_range = update.node_range(&self.node_id);
+							if let Some(range) = key_range {
+								events.push(range.into());
+							}
+						},
+						RingUpdateEvent::RemovePinningNode { node_id, db_keys } => {
+							let update = self.ring.borrow_mut().remove_node(node_id.clone())?;
+
+							let key_range = update.node_range(&self.node_id);
+
+							if let Some(_) = key_range {
+								events.push(NodeEvent::TransferKeys(db_keys));
+								let transferrred_map =
+									FaultTolerantBTreeMap::decode(&mut db_keys.as_ref())?;
+								// recover events of new uncovered blocks
+								let from_block = transferrred_map.at();
+								let to_block = block.number;
+							}
+						},
+					},
+					_ => Err(anyhow::anyhow!("Unsupported event type"))?,
+				};
 			}
 		}
-		Ok(pinning_events)
+		Ok(events)
 	}
 
-	/// Returns the list of pinning capsule events occured between a block range. It can skip a number of events for the `start` block because they may have been already processed.
+	/// Returns the list of events of type `EventType` occured between a block range. It can skip a number of events for the `start` block because they may have been already processed.
 	pub async fn events_in_range(
 		&self,
 		start: BlockNumber,
 		end: BlockNumber,
+		event: EventType,
 	) -> Result<Vec<NodeEvent>> {
-		let mut capsule_events = Vec::new();
+		let mut events = Vec::new();
+
 		for block_number in start..=end {
 			let block_hash = self.api.block_hash(block_number).await?;
 
-			let events = self.events_at(block_hash).await?;
-			capsule_events.extend(events);
-			// Add barrier event for later checkpointing
-			capsule_events.push(NodeEvent::BlockCheckpoint(block_number));
+			let node_events = self.events_at(block_hash, event.clone()).await?;
+			events.extend(node_events);
+			// Handle different types of checkpointing control events
+			if event == EventType::Capsules {
+				// Add capsules barrier event for later checkpointing
+				events.push(NodeEvent::CapsulesBarrier(block_number));
+			}
 		}
 
-		Ok(capsule_events)
+		// We do this at the end because checkpointing the keymap is more expensive
+		if event == EventType::PinningCommittee {
+			// Add keymap barrier event for later checkpointing
+			events.push(NodeEvent::KeyMapBarrier(end));
+		}
+
+		Ok(events)
 	}
 
 	pub fn api(&self) -> &TitanhApi {
