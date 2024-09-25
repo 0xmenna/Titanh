@@ -24,6 +24,7 @@ async-trait = "0.1.82"
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+futures = "0.3"
 
 # substrate
 codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [

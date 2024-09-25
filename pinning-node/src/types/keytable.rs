@@ -7,11 +7,11 @@ use sp_core::{bounded::BoundedBTreeMap, ConstU32};
 /// Maximum number of columns that can be stored in the table. Assuming a (column, value) pair is approximately 70/80 bytes, a single row can handle 32 GB of data.
 type MaxColumns = ConstU32<452_102_030>;
 /// Bounded BTreeMap that stores key-value pairs ordered by key. It is the row abstraction of the table.
-type Row<C, V> = BoundedBTreeMap<C, V, MaxColumns>;
-type OrderedRows<C, V> = Vec<Row<C, V>>;
+pub type Row<C, V> = BoundedBTreeMap<C, V, MaxColumns>;
+pub type OrderedRows<C, V> = Vec<Row<C, V>>;
 
-#[derive(Encode, Decode, Default, Clone)]
-struct KeyTable<C, V>(OrderedRows<C, V>);
+#[derive(Encode, Decode, Clone)]
+pub struct KeyTable<C, V>(OrderedRows<C, V>);
 
 impl<C, V> KeyTable<C, V>
 where
@@ -27,29 +27,29 @@ where
 		KeyTable(rows)
 	}
 
-	pub fn insert(&mut self, row_num: usize, column_key: C, value: V) -> Result<Option<V>> {
-		let row = self.get_mutable_row(row_num)?;
+	pub fn insert(&mut self, row_idx: usize, column_key: C, value: V) -> Result<Option<V>> {
+		let row = self.mutable_row(row_idx)?;
 		let old_value = row.insert(column_key, value);
 
 		Ok(old_value)
 	}
 
-	pub fn remove(&mut self, row_num: usize, column_key: &C) -> Result<Option<V>> {
-		let row = self.get_mutable_row(row_num)?;
+	pub fn remove(&mut self, row_idx: usize, column_key: &C) -> Result<Option<V>> {
+		let row = self.mutable_row(row_idx)?;
 		let rm_value = row.remove(column_key);
 
 		Ok(rm_value)
 	}
 
-	pub fn get(&self, row_num: usize, column_key: &C) -> Result<Option<&V>> {
-		let row = self.get_row(row_num)?;
+	pub fn get(&self, row_idx: usize, column_key: &C) -> Result<Option<&V>> {
+		let row = self.row(row_idx)?;
 		let value = row.get(column_key);
 
 		Ok(value)
 	}
 
-	fn get_mutable_row(&mut self, row_num: usize) -> Result<&mut Row<C, V>> {
-		let maybe_row = self.0.get_mut(row_num);
+	fn mutable_row(&mut self, row_idx: usize) -> Result<&mut Row<C, V>> {
+		let maybe_row = self.0.get_mut(row_idx);
 		if let Some(row) = maybe_row {
 			Ok(row)
 		} else {
@@ -57,8 +57,8 @@ where
 		}
 	}
 
-	pub fn get_row(&mut self, row_num: usize) -> Result<&Row<C, V>> {
-		let maybe_row = self.0.get(row_num);
+	pub fn row(&self, row_idx: usize) -> Result<&Row<C, V>> {
+		let maybe_row = self.0.get(row_idx);
 		if let Some(row) = maybe_row {
 			Ok(row)
 		} else {
@@ -80,6 +80,14 @@ pub struct FaultTolerantKeyTable {
 impl FaultTolerantKeyTable {
 	pub fn new(rep_factor: u32) -> Self {
 		FaultTolerantKeyTable { at: 0, key_table: KeyTable::new(rep_factor), rep_factor }
+	}
+
+	pub fn table(&self) -> &KeyTable<CapsuleKey, Cid> {
+		&self.key_table
+	}
+
+	pub fn mutable_table(&mut self) -> &mut KeyTable<CapsuleKey, Cid> {
+		&mut self.key_table
 	}
 
 	pub fn snapshot(&mut self, snapshot: BlockNumber) {

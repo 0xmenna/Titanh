@@ -1,4 +1,4 @@
-use super::{cid::Cid, keytable::FaultTolerantBTreeMap};
+use super::cid::Cid;
 use api::{
 	capsules_types::CapsuleKey,
 	common_types::BlockNumber,
@@ -22,7 +22,7 @@ pub enum PinningEvent {
 #[derive(Clone)]
 pub enum RingUpdateEvent {
 	NewPinningNode(NodeId),
-	RemovePinningNode { node_id: NodeId, db_keys: Vec<u8> },
+	RemovePinningNode { node_id: NodeId, block_num: BlockNumber, keytable_cid: Cid },
 }
 
 #[derive(Clone)]
@@ -36,8 +36,6 @@ pub enum TitanhEvent {
 	PinningCommittee(RingUpdateEvent),
 }
 
-pub type BlockNumberEvent = BlockNumber;
-
 #[derive(Clone)]
 pub enum NodeEvent {
 	/// Pinning associated event
@@ -45,27 +43,32 @@ pub enum NodeEvent {
 		partition_num: usize,
 		keyed_event: KeyedPinningEvent,
 	},
-	// Control event to checkpoint capsule events that have been processed at a given block
-	CapsulesBarrier(BlockNumberEvent),
-	// An event that signals the node to drop keys within a given range
-	DropKeys {
-		range: (CapsuleKey, CapsuleKey),
+	/// Control event to checkpoint events that have been processed at a given block
+	BlockBarrier(BlockNumber),
+	// An event of a new node registration
+	NodeRegistration(NodeId),
+	// Event of node removal
+	NodeRemoval {
+		node: NodeId,
+		keytable: (BlockNumber, Cid),
 	},
-	// An event that signals the node to load transferred keys (in encoded form)
-	TransferKeys(Vec<u8>),
-	// Control event to checkpoint the keymap handled by the pinning node
-	KeyMapBarrier(BlockNumberEvent),
 }
 
 impl NodeEvent {
-	pub fn pinning_event(partition_num: usize, keyed_event: KeyedPinningEvent) -> Self {
+	pub fn pinning(partition_num: usize, keyed_event: KeyedPinningEvent) -> Self {
 		NodeEvent::Pinning { partition_num, keyed_event }
 	}
-}
 
-impl From<(CapsuleKey, CapsuleKey)> for NodeEvent {
-	fn from(range: (CapsuleKey, CapsuleKey)) -> Self {
-		NodeEvent::DropKeys { range }
+	pub fn node_registration(node: NodeId) -> Self {
+		NodeEvent::NodeRegistration(node)
+	}
+
+	pub fn node_removal(node: NodeId, keytable: (BlockNumber, Cid)) -> Self {
+		NodeEvent::NodeRemoval { node, keytable }
+	}
+
+	pub fn block_barrier(block_num: BlockNumber) -> Self {
+		NodeEvent::BlockBarrier(block_num)
 	}
 }
 
@@ -114,11 +117,12 @@ pub fn try_event_from_runtime(event: RuntimeEvent) -> Option<TitanhEvent> {
 					pinning_node,
 				)))
 			},
-			PinningCommitteeEvent::PinningNodeRemoval { pinning_node, db_keys, .. } => {
+			PinningCommitteeEvent::PinningNodeRemoval { pinning_node, key_table, .. } => {
 				node_event =
 					Some(TitanhEvent::PinningCommittee(RingUpdateEvent::RemovePinningNode {
 						node_id: pinning_node,
-						db_keys,
+						block_num: key_table.block_num,
+						keytable_cid: key_table.cid.try_into().ok()?,
 					}))
 			},
 			// ignore

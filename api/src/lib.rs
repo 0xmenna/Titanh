@@ -1,10 +1,16 @@
 use anyhow::Result;
 use app_registrar::AppRegistrarApi;
 use capsules::CapsulesApi;
-use common::types::{BlockHash, BlockNumber, Rpc, Signer, SubstrateApi};
+use common::{
+	titanh::runtime_types::{frame_system::EventRecord, titanh_runtime::RuntimeEvent},
+	types::{BlockHash, BlockInfo, BlockNumber, Rpc, Signer, SubstrateApi},
+};
 use pinning_committee::PinningCommitteeApi;
 use sp_core::H256;
-use subxt::{blocks::ExtrinsicEvents, storage::Address, tx::Payload, utils::Yes, SubstrateConfig};
+use subxt::{
+	blocks::ExtrinsicEvents, config::Header, storage::Address, tx::Payload, utils::Yes,
+	SubstrateConfig,
+};
 
 mod app_registrar;
 mod builder;
@@ -60,6 +66,16 @@ impl TitanhApi {
 		Ok(result)
 	}
 
+	pub async fn runtime_events(
+		&self,
+		at: Option<BlockHash>,
+	) -> Result<Vec<EventRecord<RuntimeEvent, H256>>> {
+		let events_query = titanh::storage().system().events();
+		let runtime_events = self.query(&events_query, at).await?;
+
+		Ok(runtime_events)
+	}
+
 	/// Returns the block hash of a n associated block number
 	pub async fn block_hash(&self, block_number: BlockNumber) -> Result<BlockHash> {
 		let block_hash_query = titanh::storage().system().block_hash(&block_number);
@@ -68,9 +84,9 @@ impl TitanhApi {
 		Ok(block_hash.into())
 	}
 
-	pub async fn current_block(&self) -> Result<BlockNumber> {
+	pub async fn current_block(&self) -> Result<BlockInfo> {
 		let block = self.rpc.chain_get_block(None).await?.unwrap();
-		Ok(block.block.header.number)
+		Ok(BlockInfo { number: block.block.header.number, hash: block.block.header.hash().into() })
 	}
 
 	fn ensure_signer(&self) -> Result<&Signer> {

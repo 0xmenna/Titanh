@@ -2,17 +2,15 @@ use super::{dispatcher::EventDispatcher, NodeEvent};
 use crate::{
 	db::checkpointing::{Checkpoint, DbCheckpoint},
 	ipfs::client::IpfsClient,
-	substrate::client::SubstratePinningClient,
-	types::{
-		channels::{self, PinningReadingHandles, PinningWritingHandles},
-		events::EventType,
-	},
+	substrate::client2::SubstratePinningClient,
+	types::channels::{self, PinningReadingHandles, PinningWritingHandles},
 	utils::{
 		ref_builder::{AtomicRef, MutableRef, Ref},
 		traits::MutableDispatcher,
 	},
 };
 use anyhow::Result;
+use api::common_types::BlockInfo;
 use tokio::task::JoinHandle;
 
 // Maybe it needs a channel rather than a vector of capsule events
@@ -52,14 +50,13 @@ impl NodeEventsPool {
 		}
 	}
 
-	/// Pulls new finalized events of type `EventType` from the chain and produces them into a channel.
-	pub async fn produce_events(&mut self, event: EventType) -> Result<JoinHandle<Result<()>>> {
+	/// Pulls new finalized events from the chain and produces them into a channel.
+	pub async fn produce_events(&mut self) -> Result<JoinHandle<Result<()>>> {
 		// Clone the Arc to use it in the thread that handles the event subscription
 		let client_api = self.client_api.clone();
 
 		// Clone the writing handles to use it in the spawned thread
 		let mut writing_handles = self.writing_handles.clone();
-		let event_type = event.clone();
 		// Spawn a new task to subscribe to new capsule events.
 		let subscription = tokio::spawn(async move {
 			let mut blocks_sub =
@@ -75,23 +72,11 @@ impl NodeEventsPool {
 					// Send the first block number to the channel so the main thread knows the upper bound for event recovery.
 					writing_handles.send_block_number(block_num).await?;
 				}
-
-				let events = client_api.events_at(block.hash().into(), event_type.clone()).await?;
+				let block = BlockInfo::new(block_num, block.hash().into());
+				let events = client_api.events_at(block).await?;
 				for event in events {
 					// Send the new events to the channel for processing.
 					writing_handles.send_event(event)?;
-				}
-				// Handle the checkpointing for the different events
-				match event_type {
-					EventType::Capsules => {
-						// Send checkpointing event at every block
-						writing_handles.send_event(NodeEvent::CapsulesBarrier(block_num))?;
-					},
-					EventType::PinningCommittee => {
-						if block_num % KEYMAP_CHECKPOINT_PERIOD == 0 {
-							writing_handles.send_event(NodeEvent::KeyMapBarrier(block_num))?;
-						}
-					},
 				}
 			}
 
@@ -102,16 +87,13 @@ impl NodeEventsPool {
 		let new_finalized_block = self.reading_handles.receive_block_number()?;
 
 		// Recover events in the specified block range, if any.
-		let checkpoint = match event {
-			EventType::Capsules => self.checkpoint.capsules,
-			EventType::PinningCommittee => self.checkpoint.keymap.at(),
-		};
-		let recover_events = self
-			.client_api
-			.events_in_range(checkpoint + 1, new_finalized_block - 1, event)
-			.await?;
+		let block_num_checkpoint = self.checkpoint.block_num;
+		if let Some(checkpoint) = block_num_checkpoint {
+			let recover_events =
+				self.client_api.events_in_range(checkpoint + 1, new_finalized_block - 1).await?;
 
-		self.events.extend(recover_events);
+			self.events.extend(recover_events);
+		}
 
 		Ok(subscription)
 	}

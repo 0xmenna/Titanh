@@ -85,7 +85,7 @@ impl<'a> CapsulesApi<'a> {
 			ipfs_res.size.parse().expect("Content size is expected to be a valid number");
 		let (retention_blocks, followers_status, wait_finalized) =
 			options.unwrap_fields_or_default();
-		let ending_retention_block = self.titanh.current_block().await? + retention_blocks;
+		let ending_retention_block = self.titanh.current_block().await?.number + retention_blocks;
 
 		// Build the capsule
 		let capsule = CapsuleUploadData {

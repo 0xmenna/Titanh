@@ -1,4 +1,4 @@
-use crate::capsules_types::CapsuleKey;
+use crate::{capsules_types::CapsuleKey, common_types::BlockNumber};
 use anyhow::Result;
 use sp_core::H256;
 
@@ -9,23 +9,8 @@ pub type NodeId = H256;
 pub struct PinningRing {
 	ring: Vec<NodeId>,
 	replication_factor: u32,
-}
-
-pub struct UpdateRing {
-	pub nodes: [NodeId; 2],
-	pub ranges: [(CapsuleKey, CapsuleKey); 2],
-}
-
-impl UpdateRing {
-	pub fn node_range(&self, node_id: &NodeId) -> Option<(CapsuleKey, CapsuleKey)> {
-		if self.nodes[0] == *node_id {
-			Some(self.ranges[0])
-		} else if self.nodes[1] == *node_id {
-			Some(self.ranges[1])
-		} else {
-			None
-		}
-	}
+	/// The block number at which the ring was first initialized
+	block_number: BlockNumber,
 }
 
 pub enum NodeLookup {
@@ -36,12 +21,12 @@ pub enum NodeLookup {
 }
 
 impl PinningRing {
-	pub fn new(ring: Vec<NodeId>, replication_factor: u32) -> Self {
-		Self { ring, replication_factor }
+	pub fn new(ring: Vec<NodeId>, replication_factor: u32, block_number: BlockNumber) -> Self {
+		Self { ring, replication_factor, block_number }
 	}
 
-	fn node_lookup(&self, node_id: NodeId) -> NodeLookup {
-		let idx = self.ring.binary_search(&node_id);
+	fn node_lookup(&self, node_id: &NodeId) -> NodeLookup {
+		let idx = self.ring.binary_search(node_id);
 
 		match idx {
 			Ok(node_idx) => NodeLookup::Found(node_idx),
@@ -49,56 +34,56 @@ impl PinningRing {
 		}
 	}
 
-	/// Insert a node in the ring and return the update
-	pub fn insert_node(&mut self, node_id: NodeId) -> Result<UpdateRing> {
+	/// Insert a node in the ring and return the index where it was inserted
+	pub fn insert_node(&mut self, node_id: &NodeId) -> Result<usize> {
 		// Find the position where the node should be inserted
 		let lookup = self.node_lookup(node_id);
 
 		// The node should not already be in the ring
 		if let NodeLookup::NotFound(idx) = lookup {
-			self.ring.insert(idx, node_id);
-			let update = self.update_info(idx);
+			self.ring.insert(idx, *node_id);
 
-			Ok(update)
+			Ok(idx)
 		} else {
 			Err(anyhow::anyhow!("Node should not already be in the ring"))
 		}
 	}
 
 	/// Removes a node from the ring and retrun the update
-	pub fn remove_node(&mut self, node_id: NodeId) -> Result<UpdateRing> {
-		let lookup = self.node_lookup(node_id);
+	pub fn remove_node(&mut self, node_id: &NodeId) -> Result<usize> {
+		let idx = self.node(node_id)?;
+		self.ring.remove(idx);
 
-		// The node should already be in the ring
-		if let NodeLookup::Found(idx) = lookup {
-			let update = self.update_info(idx);
-			self.ring.remove(idx);
+		Ok(idx)
+	}
 
-			Ok(update)
-		} else {
-			Err(anyhow::anyhow!("Node should be in the ring"))
+	/// Returns the index of the node in the ring, if it exists. Else, it returns an error
+	pub fn node(&self, node: &NodeId) -> Result<usize> {
+		let lookup = self.node_lookup(node);
+		match lookup {
+			NodeLookup::Found(idx) => Ok(idx),
+			NodeLookup::NotFound(_) => Err(anyhow::anyhow!("Node not found")),
 		}
 	}
 
-	fn update_info(&self, idx: usize) -> UpdateRing {
-		let k = self.replication_factor as usize;
+	/// Returns the distance between a node and an index in the ring
+	pub fn distance_from_idx(&self, idx: usize, node_id: &NodeId) -> Result<u32> {
+		let node_idx = self.node(node_id)?;
+		let max_idx = idx.max(node_idx);
+		let min_idx = idx.min(node_idx);
 
-		// First node to be impacted
-		let a_idx = self.add_idx(idx, k);
-		let node_a = self.ring[a_idx];
-		// Impacted range
-		let prev_idx = self.sub_idx(idx, 1);
-		let range_a = (self.ring[prev_idx], self.ring[idx]);
+		Ok((max_idx - min_idx) as u32)
+	}
 
-		// Second node to be impacted
-		let b_idx = self.add_idx(idx, 1);
-		let node_b = self.ring[b_idx];
-		// Impacted range
-		let prev_idx = self.sub_idx(idx, k);
-		let next_idx = self.add_idx(prev_idx, 1);
-		let range_b = (self.ring[prev_idx], self.ring[next_idx]);
+	/// Returns the distance between two nodes in the ring
+	pub fn distance_between(&self, node_a: &NodeId, node_b: &NodeId) -> Result<u32> {
+		let idx_a = self.node(node_a)?;
+		let idx_b = self.node(node_b)?;
 
-		UpdateRing { nodes: [node_a, node_b], ranges: [range_a, range_b] }
+		let max_idx = idx_a.max(idx_b);
+		let min_idx = idx_a.min(idx_b);
+
+		Ok((max_idx - min_idx) as u32)
 	}
 
 	fn sub_idx(&self, idx: usize, value: usize) -> usize {
@@ -183,5 +168,9 @@ impl PinningRing {
 
 	pub fn replication(&self) -> u32 {
 		self.replication_factor
+	}
+
+	pub fn at(&self) -> BlockNumber {
+		self.block_number
 	}
 }

@@ -3,6 +3,18 @@ use sp_core::H256;
 use subxt::backend::legacy::LegacyRpcMethods;
 use subxt::{blocks::BlockRef, tx::PairSigner, OnlineClient, SubstrateConfig};
 
+#[derive(Clone)]
+pub struct BlockInfo {
+	pub number: BlockNumber,
+	pub hash: BlockHash,
+}
+
+impl BlockInfo {
+	pub fn new(number: BlockNumber, hash: BlockHash) -> Self {
+		Self { number, hash }
+	}
+}
+
 pub type BlockNumber = titanh::system::storage::types::number::Number;
 /// The key pair used by the validator
 pub type KeyPair = sp_core::sr25519::Pair;
@@ -12,12 +24,6 @@ pub type SubstrateApi = OnlineClient<SubstrateConfig>;
 pub type Signer = PairSigner<SubstrateConfig, KeyPair>;
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
-
-#[derive(Clone)]
-pub struct BlockInfo {
-	pub number: BlockNumber,
-	pub hash: BlockHash,
-}
 
 #[derive(Clone)]
 pub struct BlockHash(H256);

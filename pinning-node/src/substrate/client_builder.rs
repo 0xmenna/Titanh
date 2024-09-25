@@ -1,5 +1,8 @@
-use super::client::SubstratePinningClient;
-use crate::utils::{config::Config, ref_builder, traits::ClientBuilder};
+use super::client2::SubstratePinningClient;
+use crate::{
+	db::checkpointing::DbCheckpoint,
+	utils::{config::Config, ref_builder, traits::ClientBuilder},
+};
 use api::{pinning_committee_types::NodeId, TitanhApiBuilder};
 use async_trait::async_trait;
 
@@ -42,8 +45,13 @@ impl<'a> ClientBuilder<'a, SubstratePinningClient> for SubstrateClientBuilder<'a
 			.build()
 			.await;
 
+		let db = DbCheckpoint::new();
+		let block_num = db
+			.read_blocknumber_checkpoint()
+			.expect("Failed to interact with the checkpointing db");
+
 		let ring =
-			api.pinning_committee().pinning_ring().await.expect(
+			api.pinning_committee().pinning_ring(block_num).await.expect(
 				"Ring is expected to be initialized during substrate client initialization",
 			);
 		let ring = ref_builder::create_atomic_ref(ring);
