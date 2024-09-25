@@ -1,0 +1,25 @@
+version: '3'
+
+# networks:
+#   project_network:
+#     driver: bridge
+#     name: sdcc_project
+
+services:
+  # Servizio per il nodo IPFS
+  ipfs-node:
+    build: 
+      context: ./ipfs-client
+    container_name: ipfs-clientcd
+    # networks:
+    #   - sdcc_project
+
+  # Servizio per il nodo Substrate
+  substrate-client:
+    build: 
+      context: ..  # Cambiato per includere tutto il progetto
+    container_name: substrate-node
+    # networks:
+    #   - sdcc_project
+    volumes:
+      - ./../substrate:/app/substrate/node  # Monta la cartella substrate
