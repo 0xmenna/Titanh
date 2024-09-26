@@ -10,16 +10,14 @@ services:
   ipfs-node:
     build: 
       context: ./ipfs-client
-    container_name: ipfs-clientcd
+    container_name: ipfs-client
     # networks:
     #   - sdcc_project
 
   # Servizio per il nodo Substrate
-  substrate-client:
+  substrate-node:
     build: 
-      context: ..  # Cambiato per includere tutto il progetto
+      context: ./substrate/
     container_name: substrate-node
     # networks:
-    #   - sdcc_project
-    volumes:
-      - ./../substrate:/app/substrate/node  # Monta la cartella substrate
+    #   - sdcc_project# Monta la cartella substrate
