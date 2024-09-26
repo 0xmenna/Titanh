@@ -33,7 +33,7 @@ impl SubstratePinningClient {
 
 			if let Some(event) = event {
 				match event {
-					TitanhEvent::Capsules(capsule_evenet) => {
+					TitanhEvent::Capsules(mut capsule_evenet) => {
 						// If the pinning node is responsible for the key, then we get the partition number to which the key belongs. Else, we ignore the event.
 						let maybe_partition = self
 							.ring
@@ -41,8 +41,9 @@ impl SubstratePinningClient {
 							.key_node_partition(capsule_evenet.key, self.node_id)?;
 
 						if let Some(partition) = maybe_partition {
+							capsule_evenet.partition(partition);
 							// The key belongs to the pinning node
-							let pin_event = NodeEvent::pinning_event(partition, capsule_evenet);
+							let pin_event = NodeEvent::pinning(capsule_evenet);
 							events.push(pin_event);
 						}
 					},

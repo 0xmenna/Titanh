@@ -22,7 +22,7 @@ pub type PinningRing<T> = BoundedVec<PinningNodeIdOf<T>, <T as Config>::MaxPinni
 #[derive(Encode, Decode, Clone, Default, PartialEq, Eq, RuntimeDebug, TypeInfo)]
 pub struct KeyTableAt<Blocknumber> {
 	pub block_num: Blocknumber,
-	pub cid: Vec<u8>,
+	pub cids: Vec<Vec<u8>>,
 }
 
 /// The registration message of a pinning node

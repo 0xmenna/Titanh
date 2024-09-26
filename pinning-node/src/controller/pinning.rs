@@ -34,7 +34,9 @@ impl PinningNodeController {
 		let substrate_client = ref_builder::create_atomic_ref(substrate_client);
 
 		// Create the checkpointing db
-		let db = ref_builder::create_ref(DbCheckpoint::new());
+		let rep_factor = substrate_client.ring().replication();
+		let db = DbCheckpoint::new(rep_factor);
+		let db = ref_builder::create_ref(db);
 
 		// Create the events pool to manage chain events
 		let events_pool = NodeEventsPool::new(substrate_client.clone(), db.clone(), ipfs.clone());

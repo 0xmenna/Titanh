@@ -1,7 +1,7 @@
 use crate::{
 	types::{
 		cid::Cid,
-		keytable::{FaultTolerantKeyTable, KeyTable},
+		keytable::{FaultTolerantKeyTable, OrderedRows, Row},
 	},
 	utils::traits::Dispatcher,
 };
@@ -9,46 +9,53 @@ use anyhow::Result;
 use api::{capsules_types::CapsuleKey, common_types::BlockNumber};
 use async_trait::async_trait;
 use codec::{Decode, Encode};
-use sled::Db;
+use sled::{Batch as DbBatch, Db};
 
-#[derive(Default)]
+#[derive(Encode, Decode, Clone)]
 pub struct Checkpoint {
 	/// The block number checkpoint. Holds the block number until which the node has processed events.
 	pub block_num: Option<BlockNumber>,
-	/// Checkpoint of the keymap managed by the pinning node.
-	pub keytable: Option<FaultTolerantKeyTable>,
+	/// The keytable managed by the pinning node, up to date with the block number.
+	pub keytable: FaultTolerantKeyTable,
 }
 
-pub struct DbCheckpoint(Db);
+impl Checkpoint {
+	pub fn new(block_num: Option<BlockNumber>, keytable: FaultTolerantKeyTable) -> Self {
+		Checkpoint { block_num, keytable }
+	}
+
+	pub fn at(&self) -> Option<BlockNumber> {
+		self.block_num
+	}
+}
+
+pub struct DbCheckpoint {
+	db: Db,
+	rep_factor: u32,
+}
 
 impl DbCheckpoint {
-	pub fn new() -> Self {
+	pub fn new(rep_factor: u32) -> Self {
 		// Open database
-		let db = sled::open("checkpointing_db").unwrap();
-		Self(db)
+		let db = Self::open_db();
+		Self { db, rep_factor }
 	}
 
-	/// Reads all the checkpoints from the database.
-	pub fn read_all(&self) -> Result<Checkpoint> {
-		let block_num = self.read_blocknumber_checkpoint()?;
-		let keytable = self.read_keytable_checkpoint()?;
-
-		Ok(Checkpoint { block_num, keytable })
+	fn open_db() -> Db {
+		sled::open("checkpointing_db").unwrap()
 	}
 
-	/// Commits to storage some key value pair that identifies some state of the node.
-	fn checkpoint<C: Encode>(&self, key: &str, checkpoint: &C) -> Result<()> {
-		self.0
-			.insert(key.as_bytes(), checkpoint.encode())
-			.map_err(|_| anyhow::anyhow!("Failed to insert checkpoint"))?;
+	// This is unbounded to the struct instance because we still don't know the `rep_factor`, since it's a value fetched remotely, based on the block number, this is why we read this first.
+	pub fn get_blocknumber() -> Option<BlockNumber> {
+		let db = Self::open_db();
+		let block_num = Self::read_blocknumber(&db).expect("Failed to retrieve block number");
 
-		Ok(())
+		block_num
 	}
 
-	/// Retrieves some checkpoint from the database.
-	fn read_checkpoint<D: Decode>(&self, key: &str) -> Result<Option<D>> {
-		let checkpoint = self
-			.0
+	/// Retrieves some checkpoint value from the database.
+	fn read_checkpoint_value<D: Decode>(db: &Db, key: &str) -> Result<Option<D>> {
+		let checkpoint = db
 			.get(key.as_bytes())
 			.map_err(|_| anyhow::anyhow!("Failed to read checkpoint from db"))?;
 
@@ -62,45 +69,81 @@ impl DbCheckpoint {
 		}
 	}
 
-	/// Commits to storage the block number that the node has processed in terms of events.
-	pub fn blocknumber_checkpoint(&self, checkpoint: &BlockNumber) -> Result<()> {
-		self.checkpoint("capsules_checkpoint", checkpoint)
+	/// Commits to storage some value associated with a key.
+	fn checkpoint_value<C: Encode>(db: &Db, key: &str, value: &C) -> Result<()> {
+		db.insert(key.as_bytes(), value.encode())
+			.map_err(|_| anyhow::anyhow!("Failed to insert checkpoint"))?;
+
+		Ok(())
 	}
 
-	/// Retrieves the block number that the node has currently processed in terms of events.
-	pub fn read_blocknumber_checkpoint(&self) -> Result<Option<BlockNumber>> {
-		let checkpoint = self.read_checkpoint::<BlockNumber>("capsules_checkpoint")?;
+	/// Retrieves the checkpoint.
+	pub fn get_checkpoint(&self) -> Result<Checkpoint> {
+		// Build the keytable
+		let mut keytable = FaultTolerantKeyTable::new(self.rep_factor);
+		for idx in 0..self.rep_factor {
+			let key = format!("partition_{}", idx);
+			let row = Self::read_checkpoint_value::<Row<CapsuleKey, Cid>>(&self.db, &key)?;
 
-		Ok(checkpoint)
+			if let Some(row) = row {
+				keytable.add_row(row);
+			}
+		}
+
+		let block_num = Self::read_blocknumber(&self.db)?;
+
+		Ok(Checkpoint::new(block_num, keytable))
 	}
 
-	/// Commits to storage the keymap managed by the pinning node.
-	pub fn keytable_checkpoint(&self, checkpoint: &FaultTolerantKeyTable) -> Result<()> {
-		self.checkpoint("keytable_checkpoint", checkpoint)
+	/// Commits to storage the block number that the node has processed in terms of events and the affected rows in the keytable.
+	pub fn commit_checkpoint(
+		&self,
+		block_num: BlockNumber,
+		rows: Vec<&Row<CapsuleKey, Cid>>,
+	) -> Result<()> {
+		let mut batch = DbBatch::default();
+		batch.insert("block_num", block_num.encode());
+		for (idx, row) in rows.iter().enumerate() {
+			let key = format!("partition_{}", idx);
+			batch.insert(key.as_bytes(), row.encode());
+		}
+
+		// Commit the batch
+		self.db.apply_batch(batch)?;
+
+		Ok(())
 	}
 
-	/// Retrieves the keymap managed by the pinning node.
-	pub fn read_keytable_checkpoint(&self) -> Result<Option<FaultTolerantKeyTable>> {
-		let checkpoint = self.read_checkpoint::<FaultTolerantKeyTable>("keytable_checkpoint")?;
+	fn read_blocknumber(db: &Db) -> Result<Option<BlockNumber>> {
+		let block_num = Self::read_checkpoint_value::<BlockNumber>(db, "block_num")?;
 
-		Ok(checkpoint)
+		Ok(block_num)
+	}
+
+	pub fn rep_factor(&self) -> u32 {
+		self.rep_factor
 	}
 }
 
-type BlockNumberEvent = BlockNumber;
-type KetTableEvent = FaultTolerantKeyTable;
+pub struct CheckpointEvent<'a> {
+	pub block_num: BlockNumber,
+	/// checkpoint the keytable rows updated at the given block.
+	pub table_rows: Vec<&'a Row<CapsuleKey, Cid>>,
+}
 
-#[async_trait(?Send)]
-impl Dispatcher<BlockNumberEvent> for DbCheckpoint {
-	async fn dispatch(&self, event: &BlockNumberEvent) -> Result<()> {
-		self.blocknumber_checkpoint(event)
+impl CheckpointEvent<'_> {
+	pub fn new(block_num: BlockNumber, table_rows: Vec<&Row<CapsuleKey, Cid>>) -> Self {
+		CheckpointEvent { block_num, table_rows }
 	}
 }
 
-// TODO: maybe modify this
 #[async_trait(?Send)]
-impl Dispatcher<KetTableEvent> for DbCheckpoint {
-	async fn dispatch(&self, event: &KetTableEvent) -> Result<()> {
-		self.keytable_checkpoint(event)
+impl Dispatcher<CheckpointEvent<'_>, ()> for DbCheckpoint {
+	async fn dispatch(&self, event: CheckpointEvent) -> Result<()> {
+		let block_num = event.block_num;
+		let rows = event.table_rows;
+		self.commit_checkpoint(block_num, rows)?;
+
+		Ok(())
 	}
 }

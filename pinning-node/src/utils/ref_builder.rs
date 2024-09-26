@@ -1,7 +1,5 @@
 use std::{cell::RefCell, rc::Rc, sync::Arc};
 
-use tokio::sync::Mutex;
-
 pub type MutableRef<T> = Ref<RefCell<T>>;
 
 pub fn create_mutable_ref<T>(value: T) -> MutableRef<T> {
@@ -20,8 +18,8 @@ pub fn create_atomic_ref<T>(value: T) -> AtomicRef<T> {
 	Arc::new(value)
 }
 
-pub type MutableAtomicRef<T> = Arc<Mutex<T>>;
+pub type MutableAtomicRef<T> = Arc<RefCell<T>>;
 
 pub fn create_mutable_atomic_ref<T>(value: T) -> MutableAtomicRef<T> {
-	Arc::new(Mutex::new(value))
+	Arc::new(RefCell::new(value))
 }

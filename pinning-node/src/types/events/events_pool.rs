@@ -1,4 +1,6 @@
-use super::{dispatcher::EventDispatcher, NodeEvent};
+use std::mem;
+
+use super::{batch::Batch, dispatcher::EventDispatcher, NodeEvent};
 use crate::{
 	db::checkpointing::{Checkpoint, DbCheckpoint},
 	ipfs::client::IpfsClient,
@@ -25,8 +27,8 @@ pub struct NodeEventsPool {
 	checkpoint: Checkpoint,
 	/// Event Dispatcher
 	dispatcher: EventDispatcher,
-	/// Events to be processed before listening the channel of upcoming events
-	events: Vec<NodeEvent>,
+	/// Recovered events to be processed before listening the channel of upcoming events
+	recovered_batch: Batch<NodeEvent>,
 }
 
 impl NodeEventsPool {
@@ -38,7 +40,7 @@ impl NodeEventsPool {
 		// Create handles to write and read from the channel
 		let (writing_handles, reading_handles) = channels::build_channels();
 
-		let checkpoint = db.read_all().expect("Failed to read checkpoint");
+		let checkpoint = db.get_checkpoint().expect("Failed to read checkpoint");
 
 		Self {
 			client_api,
@@ -46,7 +48,7 @@ impl NodeEventsPool {
 			writing_handles,
 			checkpoint,
 			dispatcher: (db, ipfs),
-			events: Vec::new(),
+			recovered_batch: Batch::default(),
 		}
 	}
 
@@ -87,28 +89,30 @@ impl NodeEventsPool {
 		let new_finalized_block = self.reading_handles.receive_block_number()?;
 
 		// Recover events in the specified block range, if any.
-		let block_num_checkpoint = self.checkpoint.block_num;
-		if let Some(checkpoint) = block_num_checkpoint {
-			let recover_events =
-				self.client_api.events_in_range(checkpoint + 1, new_finalized_block - 1).await?;
+		if let Some(block_num) = self.checkpoint.at() {
+			let recover_batch =
+				self.client_api.events_in_range(block_num + 1, new_finalized_block - 1).await?;
 
-			self.events.extend(recover_events);
+			self.recovered_batch.extend(recover_batch);
 		}
 
 		Ok(subscription)
 	}
 
 	/// Consumes recieving events, first from the events `Vec` and then from the channel for new finalized events
-	pub async fn consume_events(&mut self) -> Result<()> {
-		// First, dispatch recovered events
-		for event in &self.events {
-			self.dispatcher.dispatch(event).await?;
-		}
-		self.events.clear();
+	pub async fn consume_events(mut self) -> Result<()> {
+		// First, we dispatch the recovered batch of events
+		self.dispatcher.dispatch(self.recovered_batch).await?;
 
-		// Consume and dispatch upcoming events from the channel
+		// Consume and dispatch upcoming events from the channel, grouping them into batches.
+		let mut consuming_batch = Batch::default();
 		while let Some(event) = self.reading_handles.receive_events().await {
-			self.dispatcher.dispatch(&event).await?;
+			consuming_batch.insert(event.clone());
+			if let Some(_) = event.block_barrier_event() {
+				// Dispatch the batch
+				let dispatchable_batch = mem::take(&mut consuming_batch);
+				self.dispatcher.dispatch(dispatchable_batch).await?;
+			}
 		}
 
 		Ok(())

@@ -329,7 +329,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			// The position in the ring of the pinning node key to which the ipfs node is assigned
 			pinning_node: PinningNodeIdOf<T>,
-			// The ipfs cid pointing to the key table of the leaving pinning node for key transfer. The keytable is updated at the block number
+			// The ipfs cids pointing to the key table rows of the leaving pinning node for key transfer. The keytable is updated at the block number
 			key_table: KeyTableAt<BlockNumberFor<T>>,
 		) -> DispatchResult {
 			// Check that the extrinsic was signed by a validator.

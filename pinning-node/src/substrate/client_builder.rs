@@ -45,15 +45,11 @@ impl<'a> ClientBuilder<'a, SubstratePinningClient> for SubstrateClientBuilder<'a
 			.build()
 			.await;
 
-		let db = DbCheckpoint::new();
-		let block_num = db
-			.read_blocknumber_checkpoint()
-			.expect("Failed to interact with the checkpointing db");
+		let block_num = DbCheckpoint::get_blocknumber();
 
-		let ring =
-			api.pinning_committee().pinning_ring(block_num).await.expect(
-				"Ring is expected to be initialized during substrate client initialization",
-			);
+		let ring = api.pinning_committee().pinning_ring(block_num).await.expect(
+			"Ring is expected to be initialized during the substrate client initialization",
+		);
 		let ring = ref_builder::create_atomic_ref(ring);
 
 		SubstratePinningClient::new(api, self.config.node_id, ring)

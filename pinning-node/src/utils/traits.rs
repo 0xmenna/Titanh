@@ -10,11 +10,11 @@ pub trait ClientBuilder<'a, T> {
 }
 
 #[async_trait(?Send)]
-pub trait Dispatcher<E> {
-	async fn dispatch(&self, event: &E) -> Result<()>;
+pub trait Dispatcher<D, T> {
+	async fn dispatch(&self, dispatchable: D) -> Result<T>;
 }
 
 #[async_trait(?Send)]
-pub trait MutableDispatcher<E> {
-	async fn dispatch(&mut self, event: &E) -> Result<()>;
+pub trait MutableDispatcher<D, T> {
+	async fn dispatch(&mut self, dispatchable: D) -> Result<T>;
 }

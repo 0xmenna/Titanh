@@ -99,20 +99,20 @@ enum PinOp {
 }
 
 #[async_trait(?Send)]
-impl MutableDispatcher<KeyedPinningEvent> for IpfsClient {
-	async fn dispatch(&mut self, keyed_event: &KeyedPinningEvent) -> Result<()> {
-		match &keyed_event.event {
+impl MutableDispatcher<PinningEvent, ()> for IpfsClient {
+	async fn dispatch(&mut self, pinning_event: PinningEvent) -> Result<()> {
+		match pinning_event {
 			PinningEvent::Pin { cid } => {
-				self.pin_add(cid).await;
+				self.pin_add(&cid).await;
 			},
 
 			PinningEvent::UpdatePin { old_cid, new_cid } => {
-				self.pin_remove(old_cid).await;
-				self.pin_add(new_cid).await;
+				self.pin_remove(&old_cid).await;
+				self.pin_add(&new_cid).await;
 			},
 
 			PinningEvent::RemovePin { cid } => {
-				self.pin_remove(cid).await;
+				self.pin_remove(&cid).await;
 			},
 		};
 
