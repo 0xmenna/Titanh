@@ -38,8 +38,4 @@ impl<T> Batch<T> {
 	pub fn iter(&self) -> std::slice::Iter<'_, T> {
 		self.0.iter()
 	}
-
-	pub fn as_mut_vec(&mut self) -> &mut Vec<T> {
-		&mut self.0
-	}
 }

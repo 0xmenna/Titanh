@@ -1,31 +1,30 @@
+use crate::types::events::NodeEvent;
 use anyhow::Result;
 use api::common_types::BlockNumber;
 use tokio::sync::mpsc::{
 	channel, unbounded_channel, Receiver, Sender, UnboundedReceiver, UnboundedSender,
 };
 
-use super::events::NodeEvent;
-
-pub fn build_channels() -> (PinningWritingHandles, PinningReadingHandles) {
+pub fn build_pool_handles() -> (PoolWritingHandle, PoolReadingHandle) {
 	// Channel to send a single block number
 	let (tx_block, rx_block) = channel(1);
 	// Channel to handle events
 	let (tx_events, rx_events) = unbounded_channel();
 
 	(
-		PinningWritingHandles { is_block_number_sent: false, tx_block, tx_events },
-		PinningReadingHandles { rx_block, rx_events },
+		PoolWritingHandle { is_block_number_sent: false, tx_block, tx_events },
+		PoolReadingHandle { rx_block, rx_events },
 	)
 }
 
 #[derive(Clone)]
-pub struct PinningWritingHandles {
+pub struct PoolWritingHandle {
 	is_block_number_sent: bool,
 	tx_block: Sender<BlockNumber>,
 	tx_events: UnboundedSender<NodeEvent>,
 }
 
-impl PinningWritingHandles {
+impl PoolWritingHandle {
 	pub async fn send_block_number(&mut self, number: BlockNumber) -> Result<()> {
 		self.tx_block.send(number).await?;
 		self.is_block_number_sent = true;
@@ -42,12 +41,12 @@ impl PinningWritingHandles {
 	}
 }
 
-pub struct PinningReadingHandles {
+pub struct PoolReadingHandle {
 	rx_block: Receiver<BlockNumber>,
 	rx_events: UnboundedReceiver<NodeEvent>,
 }
 
-impl PinningReadingHandles {
+impl PoolReadingHandle {
 	pub fn receive_block_number(&mut self) -> Result<BlockNumber> {
 		let block_number = self.rx_block.blocking_recv();
 

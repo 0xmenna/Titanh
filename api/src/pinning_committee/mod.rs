@@ -1,6 +1,6 @@
 use crate::{
-	common_types::{BlockHash, BlockNumber},
-	titanh::{self, system::storage::types::block_hash},
+	common_types::BlockNumber,
+	titanh::{self},
 	TitanhApi,
 };
 use anyhow::Result;

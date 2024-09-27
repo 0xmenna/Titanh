@@ -1,9 +1,9 @@
-use super::client2::SubstratePinningClient;
+use super::client::SubstrateClient;
 use crate::{
 	db::checkpointing::DbCheckpoint,
-	utils::{config::Config, ref_builder, traits::ClientBuilder},
+	utils::{config::Config, traits::ClientBuilder},
 };
-use api::{pinning_committee_types::NodeId, TitanhApiBuilder};
+use api::{common_types::BlockInfo, pinning_committee_types::NodeId, TitanhApiBuilder};
 use async_trait::async_trait;
 
 pub struct SubstratePinningConfig<'a> {
@@ -33,25 +33,27 @@ pub struct SubstrateClientBuilder<'a> {
 }
 
 #[async_trait]
-impl<'a> ClientBuilder<'a, SubstratePinningClient> for SubstrateClientBuilder<'a> {
+impl<'a> ClientBuilder<'a, SubstrateClient> for SubstrateClientBuilder<'a> {
 	fn from_config(config: &'a Config) -> Self {
 		let config = SubstratePinningConfig::from(config);
 		Self { config }
 	}
 
-	async fn build(self) -> SubstratePinningClient {
+	async fn build(self) -> SubstrateClient {
 		let api = TitanhApiBuilder::rpc(&self.config.rpc_url)
 			.seed(&self.config.seed_phrase)
 			.build()
 			.await;
 
-		let block_num = DbCheckpoint::get_blocknumber();
+		let maybe_block = DbCheckpoint::get_blocknumber();
 
-		let ring = api.pinning_committee().pinning_ring(block_num).await.expect(
-			"Ring is expected to be initialized during the substrate client initialization",
-		);
-		let ring = ref_builder::create_atomic_ref(ring);
+		let block = if let Some(block_num) = maybe_block {
+			let hash = api.block_hash(block_num).await.unwrap();
+			BlockInfo::new(block_num, hash)
+		} else {
+			api.current_block().await.unwrap()
+		};
 
-		SubstratePinningClient::new(api, self.config.node_id, ring)
+		SubstrateClient::new(api, self.config.node_id, block)
 	}
 }

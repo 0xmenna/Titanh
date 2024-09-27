@@ -1,4 +1,4 @@
-use super::cid::Cid;
+use super::{batch::Batch, cid::Cid, keytable::TableRow};
 use api::{
 	capsules_types::CapsuleKey,
 	common_types::BlockNumber,
@@ -8,10 +8,6 @@ use api::{
 		runtime_types::titanh_runtime::RuntimeEvent,
 	},
 };
-
-pub mod batch;
-pub mod dispatcher;
-pub mod events_pool;
 
 #[derive(Clone)]
 pub enum NodeEvent {
@@ -81,7 +77,31 @@ impl LeaveNodeEvent {
 	}
 
 	pub fn row_cid_of(&self, row_idx: usize) -> Cid {
-		self.transferred_keytable.1[row_idx]
+		let cid = self
+			.transferred_keytable
+			.1
+			.get(row_idx)
+			.expect("The cid entry should exist in the leave event");
+
+		cid.to_owned()
+	}
+}
+
+// (leave event, block number, index of event)
+pub type LeaveNodeEventAt = (LeaveNodeEvent, BlockNumber, usize);
+
+// The cid points to a portion of the keytable of the leaving node, and the batch contains events to be processed not up to date with the keytable of the leaving node.
+pub type PinEventFromLeaveNode = (Cid, Batch<PinningEvent>);
+
+pub struct CheckpointEvent<'a> {
+	pub block_num: BlockNumber,
+	/// checkpoint the keytable rows updated at the given block.
+	pub table_rows: Vec<&'a TableRow>,
+}
+
+impl<'a> CheckpointEvent<'a> {
+	pub fn new(block_num: BlockNumber, table_rows: Vec<&'a TableRow>) -> Self {
+		CheckpointEvent { block_num, table_rows }
 	}
 }
 
@@ -129,12 +149,12 @@ pub fn try_event_from_runtime(event: RuntimeEvent) -> Option<NodeEvent> {
 				node_event = Some(NodeEvent::NodeRegistration(pinning_node))
 			},
 			PinningCommitteeEvent::PinningNodeRemoval { pinning_node, key_table, .. } => {
+				let cids =
+					key_table.cids.into_iter().filter_map(|cid| cid.try_into().ok()).collect();
+
 				node_event = Some(NodeEvent::NodeRemoval(LeaveNodeEvent {
 					node: pinning_node,
-					transferred_rows: (
-						key_table.block_num,
-						key_table.cids.into_iter().map(|cid| cid.try_into().ok()?).collect(),
-					),
+					transferred_keytable: (key_table.block_num, cids),
 				}))
 			},
 			// ignore

@@ -86,19 +86,6 @@ impl PinningRing {
 		Ok((max_idx - min_idx) as u32)
 	}
 
-	fn sub_idx(&self, idx: usize, value: usize) -> usize {
-		let ring_size = self.ring.len();
-		if idx < value {
-			(idx + self.len() - value) % ring_size
-		} else {
-			idx - value
-		}
-	}
-
-	fn add_idx(&self, idx: usize, value: usize) -> usize {
-		(idx + value) % self.ring.len()
-	}
-
 	/// Looks for the closest node in the ring given a `target_key`
 	fn binary_search_closest_node(&self, target_key: CapsuleKey) -> Result<usize> {
 		if self.ring.is_empty() {

@@ -1,8 +1,5 @@
 use crate::types::cid::Cid;
-use crate::types::events::{KeyedPinningEvent, PinningEvent};
-use crate::utils::traits::MutableDispatcher;
 use anyhow::Result;
-use async_trait::async_trait;
 use futures::TryStreamExt;
 use ipfs_api_backend_hyper::Error as IpfsError;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient as ApiIpfsClient};
@@ -96,26 +93,4 @@ impl IpfsClient {
 enum PinOp {
 	Add,
 	Remove,
-}
-
-#[async_trait(?Send)]
-impl MutableDispatcher<PinningEvent, ()> for IpfsClient {
-	async fn dispatch(&mut self, pinning_event: PinningEvent) -> Result<()> {
-		match pinning_event {
-			PinningEvent::Pin { cid } => {
-				self.pin_add(&cid).await;
-			},
-
-			PinningEvent::UpdatePin { old_cid, new_cid } => {
-				self.pin_remove(&old_cid).await;
-				self.pin_add(&new_cid).await;
-			},
-
-			PinningEvent::RemovePin { cid } => {
-				self.pin_remove(&cid).await;
-			},
-		};
-
-		Ok(())
-	}
 }

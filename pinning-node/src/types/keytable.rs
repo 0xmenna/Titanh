@@ -1,23 +1,58 @@
-use std::vec;
+use std::{
+	collections::BTreeMap,
+	ops::{Deref, DerefMut},
+	vec,
+};
 
-use super::{cid::Cid, events::PinningEvent};
-use crate::utils::traits::MutableDispatcher;
+use super::cid::Cid;
 use anyhow::Result;
 use api::capsules_types::CapsuleKey;
-use async_trait::async_trait;
 use codec::{Decode, Encode};
-use sp_core::{bounded::BoundedBTreeMap, crypto::UncheckedInto, ConstU32, H256};
 
 /// Maximum number of columns that can be stored in the table. Assuming a (column, value) pair is approximately 70/80 bytes, a single row can handle 32 GB of data.
-type MaxColumns = ConstU32<452_102_030>;
+pub const MAX_COLUMNS: u32 = 452_102_030;
 /// Bounded BTreeMap that stores key-value pairs ordered by key. It is the row abstraction of the table.
-pub type Row<C, V> = BoundedBTreeMap<C, V, MaxColumns>;
-pub type OrderedRows<C, V> = Vec<Row<C, V>>;
+#[derive(Encode, Decode, Clone)]
+pub struct Row<C, V, const S: u32>(BTreeMap<C, V>);
+
+impl<C, V, const S: u32> TryFrom<BTreeMap<C, V>> for Row<C, V, S> {
+	type Error = ();
+
+	fn try_from(map: BTreeMap<C, V>) -> Result<Self, Self::Error> {
+		if map.len() as u32 <= S {
+			Ok(Row(map))
+		} else {
+			Err(())
+		}
+	}
+}
+
+impl<C, V, const S: u32> Row<C, V, S> {
+	pub fn new() -> Self {
+		Row(BTreeMap::new())
+	}
+}
+
+impl<K, V, const S: u32> Deref for Row<K, V, S> {
+	type Target = BTreeMap<K, V>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.0
+	}
+}
+
+impl<K, V, const S: u32> DerefMut for Row<K, V, S> {
+	fn deref_mut(&mut self) -> &mut Self::Target {
+		&mut self.0
+	}
+}
+
+pub type OrderedRows<C, V, const S: u32> = Vec<Row<C, V, S>>;
 
 #[derive(Encode, Decode, Clone)]
-pub struct KeyTable<C, V>(OrderedRows<C, V>);
+pub struct KeyTable<C, V, const S: u32>(OrderedRows<C, V, S>);
 
-impl<C, V> KeyTable<C, V>
+impl<C, V, const S: u32> KeyTable<C, V, S>
 where
 	C: Ord + Encode + Decode,
 	V: Encode + Decode,
@@ -33,20 +68,37 @@ where
 
 	pub fn insert(&mut self, row_idx: usize, column_key: C, value: V) -> Result<Option<V>> {
 		let row = self.mutable_row(row_idx)?;
-		let old_value = row.insert(column_key, value);
 
-		Ok(old_value)
+		let row_columns = row.len() as u32;
+
+		if row_columns < Self::max_columns() || row.contains_key(&column_key) {
+			let old_value = row.insert(column_key, value);
+			Ok(old_value)
+		} else {
+			Err(anyhow::anyhow!("Row has reached the maximum number of columns"))
+		}
 	}
 
-	pub fn add_row(&mut self, row: Row<C, V>) {
-		for (idx, key_row) in self.0.iter().enumerate() {
+	pub fn add_row(&mut self, row: Row<C, V, S>) {
+		for (idx, key_row) in self.0.iter_mut().enumerate() {
 			if key_row.is_empty() {
 				self.0[idx] = row;
+				break;
 			}
 		}
 	}
 
-	fn put_front(&mut self, row: Row<C, V>) {
+	pub fn insert_row_at(&mut self, row_idx: usize, row: Row<C, V, S>) -> Result<()> {
+		if row_idx >= self.0.len() {
+			return Err(anyhow::anyhow!("Row number out of bounds"));
+		}
+
+		self.0[row_idx] = row;
+
+		Ok(())
+	}
+
+	fn put_front(&mut self, row: Row<C, V, S>) {
 		let rows_num = self.0.len();
 		if rows_num == self.0.capacity() {
 			self.0.remove(rows_num - 1);
@@ -61,14 +113,7 @@ where
 		Ok(rm_value)
 	}
 
-	pub fn get(&self, row_idx: usize, column_key: &C) -> Result<Option<&V>> {
-		let row = self.row(row_idx)?;
-		let value = row.get(column_key);
-
-		Ok(value)
-	}
-
-	fn mutable_row(&mut self, row_idx: usize) -> Result<&mut Row<C, V>> {
+	fn mutable_row(&mut self, row_idx: usize) -> Result<&mut Row<C, V, S>> {
 		let maybe_row = self.0.get_mut(row_idx);
 		if let Some(row) = maybe_row {
 			Ok(row)
@@ -77,7 +122,7 @@ where
 		}
 	}
 
-	pub fn row(&self, row_idx: usize) -> Result<&Row<C, V>> {
+	pub fn row(&self, row_idx: usize) -> Result<&Row<C, V, S>> {
 		let maybe_row = self.0.get(row_idx);
 		if let Some(row) = maybe_row {
 			Ok(row)
@@ -89,16 +134,22 @@ where
 	pub fn size(&self) -> usize {
 		self.0.len()
 	}
+
+	pub fn max_columns() -> u32 {
+		S
+	}
 }
 
 type ColumnKey = CapsuleKey;
+
+pub type TableRow = Row<ColumnKey, Cid, MAX_COLUMNS>;
 
 #[derive(Encode, Decode, Clone)]
 pub struct FaultTolerantKeyTable {
 	/// The key table handled by the pinning node.
 	/// Each row is a partition of the key space and is bounded to the replication factor.
 	/// i.e. the first row is the closest key range to the node, the second row is the second closest key range, and so on, up to the replication factor.
-	key_table: KeyTable<ColumnKey, Cid>,
+	key_table: KeyTable<ColumnKey, Cid, MAX_COLUMNS>,
 	rep_factor: u32,
 	rows_to_flush: Vec<bool>,
 }
@@ -113,7 +164,7 @@ impl FaultTolerantKeyTable {
 	}
 
 	pub fn partition_row(&mut self, row_idx: usize, barrier_key: &ColumnKey) -> Result<()> {
-		let mut row = self.key_table.mutable_row(row_idx)?;
+		let row = self.key_table.mutable_row(row_idx)?;
 		let mut new_row = row.split_off(barrier_key);
 		// since `split_off` includes the barrier key in the new row, we need to swap it with the original row
 		let maybe_val = new_row.remove(barrier_key);
@@ -136,15 +187,28 @@ impl FaultTolerantKeyTable {
 		let mut curr_row_idx = row_idx;
 		let mut next_row_idx = row_idx + 1;
 
+		let mut rows = Vec::new();
 		while next_row_idx < self.rep_factor as usize {
-			let mut row = self.key_table.mutable_row(curr_row_idx)?;
+			let mut row = self.key_table.row(curr_row_idx)?.clone();
 
 			// take the next row and append it to the current row, leaving the next row empty
 			let mut next_row = self.key_table.mutable_row(next_row_idx)?;
+			let next_size = next_row.len() as u32;
+			let left_size = MAX_COLUMNS - row.len() as u32;
+			if left_size < next_size {
+				return Err(anyhow::anyhow!("Not enough space to merge rows"));
+			}
+
 			row.append(&mut next_row);
+			rows.push((curr_row_idx, row));
 
 			curr_row_idx += 1;
 			next_row_idx += 1;
+		}
+
+		// insert the merged rows back into the table
+		for (idx, row) in rows {
+			self.key_table.insert_row_at(idx, row)?;
 		}
 
 		self.rows_to_flush.fill(true);
@@ -172,7 +236,7 @@ impl FaultTolerantKeyTable {
 		Ok(val)
 	}
 
-	pub fn flush(&mut self) -> Vec<&Row<ColumnKey, Cid>> {
+	pub fn flush(&mut self) -> Vec<&TableRow> {
 		let mut rows = Vec::new();
 		for (idx, should_flush) in self.rows_to_flush.iter().enumerate() {
 			if *should_flush {
@@ -185,17 +249,24 @@ impl FaultTolerantKeyTable {
 		rows
 	}
 
-	pub fn add_row(&mut self, row: Row<ColumnKey, Cid>) {
-		self.key_table.add_row(row);
-	}
-
-	pub fn extend_last_row(&mut self, row: &mut Row<ColumnKey, Cid>) -> Result<()> {
+	pub fn extend_last_row(&mut self, row: &mut TableRow) -> Result<()> {
 		let last_idx = self.key_table.size() - 1;
-		let mut last_row = self.key_table.mutable_row(last_idx)?;
+		let last_row = self.key_table.mutable_row(last_idx)?;
+
+		let row_size = row.len() as u32;
+		let left_size = MAX_COLUMNS - last_row.len() as u32;
+		if left_size < row_size {
+			return Err(anyhow::anyhow!("Not enough space to extend last row"));
+		}
+
 		last_row.append(row);
 
 		self.rows_to_flush[last_idx] = true;
 
 		Ok(())
+	}
+
+	pub fn mutable_table(&mut self) -> &mut KeyTable<ColumnKey, Cid, MAX_COLUMNS> {
+		&mut self.key_table
 	}
 }
