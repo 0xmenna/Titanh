@@ -1,5 +1,5 @@
 [package]
-name = "titan-node"
+name = "titanh-node"
 description = "A solochain node template built with Substrate, part of Polkadot Sdk."
 version = "0.0.0"
 license = "MIT-0"

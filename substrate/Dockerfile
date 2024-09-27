@@ -48,4 +48,4 @@ RUN cargo build --release
 EXPOSE 9944 9945 9615 30333
 
 # Comando per eseguire il nodo Substrate con i parametri specifici
-CMD ["./target/release/node", "--dev"]
+CMD ["/substrate/target/release/titanh-node", "--dev"]
