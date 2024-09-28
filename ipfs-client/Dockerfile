@@ -16,4 +16,4 @@ EXPOSE 4001 5001 8080
 ENV IPFS_PROFILE=server
 
 # Comando per avviare il nodo IPFS
-CMD ["ipfs", "daemon", "--init"]
+CMD ["daemon", "--init"]

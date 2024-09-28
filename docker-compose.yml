@@ -1,9 +1,8 @@
 version: '3'
 
-# networks:
-#   project_network:
-#     driver: bridge
-#     name: sdcc_project
+networks:
+  sdcc_project:
+    driver: bridge
 
 services:
   # Servizio per il nodo IPFS
@@ -11,13 +10,60 @@ services:
     build: 
       context: ./ipfs-client
     container_name: ipfs-client
-    # networks:
-    #   - sdcc_project
+    networks:
+      - sdcc_project
 
   # Servizio per il nodo Substrate
-  substrate-node:
+  substrate-first-node:
     build: 
       context: ./substrate/
-    container_name: substrate-node
-    # networks:
-    #   - sdcc_project# Monta la cartella substrate
+    container_name: substrate-first-node
+    hostname: substrate-first-node
+    networks:
+      - sdcc_project
+    volumes:
+      - ./config/node01:/tmp/node01
+      - ./config/customSpecRaw.json:/substrate/customSpecRaw.json
+    # command: ["/substrate/target/release/titanh-node", 
+    #           "--base-path", "/tmp/node01", 
+    #           "--chain", "/substrate/customSpecRaw.json", 
+    #           "--port", "30333", 
+    #           "--rpc-port", "9945", 
+    #           "--telemetry-url", "wss://telemetry.polkadot.io/submit/ 0", 
+    #           "--validator", 
+    #           "--rpc-methods", "Unsafe", 
+    #           "--name", "MyNode01", 
+    #           "--password-filename",
+    #           "/substrate/password.txt"
+    #           ]
+    expose:
+      - "30333:30333"
+      - "9945:9945"
+
+  substrate-second-node:
+    build:
+      context: ./substrate/
+    container_name: substrate-second-node
+    hostname: substrate-second-node
+    networks:
+      - sdcc_project
+    depends_on:
+      - substrate-first-node
+    volumes:
+      - ./config/node02:/tmp/node02
+      - ./config/customSpecRaw.json:/substrate/customSpecRaw.json
+    # command: ["/substrate/target/release/titanh-node", 
+    #           "--base-path", "/tmp/node02", 
+    #           "--chain", "/substrate/customSpecRaw.json", 
+    #           "--port", "30334", 
+    #           "--rpc-port", "9946", 
+    #           "--telemetry-url", "wss://telemetry.polkadot.io/submit/ 0", 
+    #           "--validator", 
+    #           "--rpc-methods", "Unsafe", 
+    #           "--name", "MyNode02", 
+    #           "--bootnodes", "/ip4/substrate-first-node/tcp/30333/p2p/12D3KooWEm3aArwivHjAAHQRHmicDo3V141TUj5XvjKCXja53SJW", 
+    #           "--password-filename",
+    #           "/substrate/password.txt"]
+    expose:
+      - "30334:30334"
+      - "9946:9946"

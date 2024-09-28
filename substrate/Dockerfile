@@ -1,32 +1,29 @@
-# Usa un'immagine base ufficiale di Rust
-FROM rust:latest
+# Usa un'immagine base ufficiale di Ubuntu
+FROM ubuntu:latest
 
-# Installa le dipendenze necessarie per Substrate
-RUN apt-get update && \
-    apt-get install -y cmake pkg-config libssl-dev git clang curl libclang-dev make
+# Imposta le variabili di ambiente per non interagire durante l'installazione dei pacchetti
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Installa toolchain specifica per Substrate (nightly con componenti aggiuntivi)
+# Installa le dipendenze necessarie per Substrate, il comando ping e protoc
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    pkg-config \
-    libssl-dev \
-    git \
-    clang \
-    curl \
-    libclang-dev \
-    protobuf-compiler \
-    make && \
+    apt-get install -y cmake pkg-config libssl-dev git clang curl libclang-dev make iputils-ping protobuf-compiler && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
+# Installa Rust e la toolchain specifica per Substrate (nightly con componenti aggiuntivi)
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Aggiunge Cargo al PATH in modo persistente
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Imposta la toolchain di default e aggiunge i componenti necessari
 RUN rustup default stable && \
     rustup update && \
     rustup update nightly && \
     rustup target add wasm32-unknown-unknown --toolchain nightly && \
     rustup component add clippy rustfmt
 
+# Crea una directory per Substrate
 RUN mkdir /substrate
 
 # Copy the entire substrate directory into the container
@@ -42,10 +39,7 @@ COPY Cargo.lock /substrate
 WORKDIR /substrate/node
 
 # Compila il progetto
-RUN cargo build --release
+RUN cargo clean && cargo build --release
 
 # Espone le porte necessarie
 EXPOSE 9944 9945 9615 30333
-
-# Comando per eseguire il nodo Substrate con i parametri specifici
-CMD ["/substrate/target/release/titanh-node", "--dev"]
