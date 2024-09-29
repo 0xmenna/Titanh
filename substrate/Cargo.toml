@@ -1,17 +1,13 @@
 [workspace.package]
-authors = ["Substrate DevHub <https://github.com/substrate-developer-hub>"]
 edition = "2021"
-repository = "https://github.com/substrate-developer-hub/substrate-node-template/"
-license = "MIT-0"
-homepage = "https://substrate.io"
+repository = "https://github.com/0xMenna01/Titanh"
 
 [workspace]
 members = [
-    "substrate/node",
-    "substrate/pallets/capsules", "substrate/pallets/app-registrar", "substrate/pallets/pinning-committee",
-    "substrate/runtime",
-	"pinning-node", "substrate/primitives", "api",
-	"cli/ipfs-cli-key", "example",
+    "titanh-node",
+    "pallets/capsules", "pallets/app-registrar", "pallets/pinning-committee",
+    "runtime",
+	"primitives"
 ]
 resolver = "2"
 [profile.release]

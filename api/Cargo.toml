@@ -19,10 +19,13 @@ anyhow = "1.0.86"
 codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [
 	"derive",
 ] }
+scale-info = { version = "2.11.3", default-features = false, features = [
+	"derive",
+] }
 sp-core = { version = "31.0.0", features = ["full_crypto", "serde"] }
 sp-crypto-hashing = "0.1.0"
+sp-application-crypto = "38.0.0"
 subxt = { version = "0.37.0", features = ["substrate-compat"] }
-
 
 # ipfs
 ipfs-api-backend-hyper = "0.6"

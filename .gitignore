@@ -11,5 +11,10 @@
 .envrc
 .direnv
 
+# Ignore env files and keys
+./docker/.env
+**/.env
+./keys
+
 
 

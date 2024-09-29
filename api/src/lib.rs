@@ -2,7 +2,10 @@ use anyhow::Result;
 use app_registrar::AppRegistrarApi;
 use capsules::CapsulesApi;
 use common::{
-	titanh::runtime_types::{frame_system::EventRecord, titanh_runtime::RuntimeEvent},
+	titanh::{
+		runtime_types::{frame_system::EventRecord, titanh_runtime::RuntimeEvent},
+		utility::calls::types::batch_all::Calls as RuntimeCalls,
+	},
 	types::{BlockHash, BlockInfo, BlockNumber, Rpc, Signer, SubstrateApi},
 };
 use pinning_committee::PinningCommitteeApi;
@@ -119,6 +122,24 @@ impl TitanhApi {
 			.await?;
 
 		Ok(events)
+	}
+
+	/// Signs and submits a batch of transactions (all or nothing). It waits until the transaction is finalized.
+	pub async fn sing_and_submit_batch(
+		&self,
+		calls: RuntimeCalls,
+		wait_finalized: bool,
+	) -> Result<H256> {
+		let batch_tx = titanh::tx().utility().batch_all(calls);
+
+		let tx_hash = if wait_finalized {
+			let events = self.sign_and_submit_wait_finalized(&batch_tx).await?;
+			events.extrinsic_hash()
+		} else {
+			self.sign_and_submit(&batch_tx).await?
+		};
+
+		Ok(tx_hash)
 	}
 
 	/// Returns the app registrar api

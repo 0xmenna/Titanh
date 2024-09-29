@@ -6,9 +6,9 @@ mod common_types;
 
 pub use common_types::*;
 use sp_runtime::{
-	generic,
-	traits::{BlakeTwo256, IdentifyAccount, Verify},
-	KeyTypeId, MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic,
+    generic,
+    traits::{BlakeTwo256, IdentifyAccount, Verify},
+    KeyTypeId, MultiSignature, OpaqueExtrinsic as UncheckedExtrinsic,
 };
 
 /// An index to a block.
@@ -68,3 +68,21 @@ pub const TOKEN_DECIMALS: u32 = 12;
 pub const TOKEN: u128 = 10u128.pow(TOKEN_DECIMALS);
 
 pub const ADDRESSES_ENCODING: u8 = 42;
+
+pub mod ed25519 {
+
+    mod app_ed25519 {
+        use crate::PINNING;
+        use sp_application_crypto::{app_crypto, ed25519};
+        app_crypto!(ed25519, PINNING);
+    }
+
+    sp_application_crypto::with_pair! {
+        /// An IPFS keypair using ed25519 as its crypto.
+        pub type Pair = app_ed25519::Pair;
+    }
+
+    pub type IpfsId = app_ed25519::Public;
+
+    pub type Signature = app_ed25519::Signature;
+}

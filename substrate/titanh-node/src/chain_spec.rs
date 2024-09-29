@@ -147,6 +147,11 @@ fn testnet_genesis(
 					)
 				})
 				.collect::<Vec<_>>(),
+		},
+		"pinningCommittee": {
+			"replicationFactor": 2,
+			"ipfsReplicas": 2,
+			"pinningNodes": 3,
 		}
 	})
 }

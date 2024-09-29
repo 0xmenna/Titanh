@@ -38,10 +38,3 @@ pub type RegistrationMessageOf<T> = RegistrationMessage<
 >;
 
 pub type PinningNodeIndex = u32;
-
-/// The effect of a pinning node registration
-#[derive(Encode, Decode, MaxEncodedLen, Clone, PartialEq, Eq, Debug, TypeInfo)]
-pub enum Registration<IpfsKey> {
-	Addition,
-	Substitution(IpfsKey),
-}

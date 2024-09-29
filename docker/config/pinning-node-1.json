@@ -1,0 +1,15 @@
+{
+  "seed_phrase": "",
+  "chain_node_endpoint": "ws://substrate-titanh-node-1:9944",
+  "failure_retry" : 2,
+  "ipfs_peers": [
+    {
+      "rpc_url": "http://:5001",
+      "peer_pubkey": "0xc20b1ac5a93d40f6751067dab7c801f7c5d7f41bb5d397adfc766434f410ef55"
+    },
+    {
+      "rpc_url": "http://127.0.0.1:5001",
+      "peer_pubkey": "0xc20b1ac5a93d40f6751067dab7c801f7c5d7f41bb5d397adfc766434f410ef55"
+    }
+  ]
+}

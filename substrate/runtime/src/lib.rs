@@ -291,7 +291,7 @@ impl pallet_pinning_committee::Config for Runtime {
 	type ValidatorId = AccountId;
 	type ValidatorRegistrar = Session;
 	type ValidatorIdOf = ValidatorIdOf;
-	type IPFSNodeId = pallet_pinning_committee::ed25519::AuthorityId;
+	type IPFSNodeId = primitives::ed25519::IpfsId;
 	type RegistrationMessage = RegistrationMessage;
 }
 
@@ -301,8 +301,8 @@ impl pallet_app_registrar::Config for Runtime {
 }
 
 parameter_types! {
-	pub CapsulePrefix: &'static [u8] = b"Capsule Identifier";
-	pub ContainerPrefix: &'static [u8] = b"Container Identifier";
+	pub CapsulePrefix: &'static [u8] = b"cpsl";
+	pub ContainerPrefix: &'static [u8] = b"cntnr";
 }
 
 impl pallet_capsules::Config for Runtime {

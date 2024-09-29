@@ -1,0 +1,60 @@
+version: '3'
+
+networks:
+  titanh_network:
+    driver: bridge
+
+services:
+
+  # First substrate node
+  substrate-titanh-node-1:
+    image: substrate-titanh-node
+    container_name: substrate-titanh-node-1
+    networks:
+      titanh_network:
+    volumes:
+      - ./scripts/substrate-node:/home/titanh/scripts
+      - ./config/chain-specs:/home/titanh/specs
+    environment:
+      - CHAIN_SPEC=/home/titanh/specs/titanhSpecRaw.json
+      - NODE_NAME=substrate-titanh-node-1
+      - SEED_PHRASE=${SEED_SUBSTRATE_NODE_1}
+    tty: true
+    ports:
+      - "9944:9944"
+    entrypoint: ["/home/titanh/scripts/validator-entrypoint.sh"]
+
+  # Second substrate node
+  substrate-titanh-node-2:
+    image: substrate-titanh-node
+    container_name: substrate-titanh-node-2
+    networks:
+      - titanh_network
+    volumes:
+      - ./scripts/substrate-node:/home/titanh/scripts
+      - ./config/chain-specs:/home/titanh/specs
+    environment:
+      - CHAIN_SPEC=/home/titanh/specs/titanhSpecRaw.json
+      - NODE_NAME=substrate-titanh-node-2
+      - SEED_PHRASE=${SEED_SUBSTRATE_NODE_2}
+      - BOOTNODE_HOST=substrate-titanh-node-1
+    depends_on:
+      - substrate-titanh-node-1
+    tty: true
+    entrypoint: ["/home/titanh/scripts/validator-entrypoint.sh"]
+
+  # pinning-node:
+  #   build:
+  #     context: ../pinning-node
+  #     dockerfile: ../docker/dockerfiles/pinning-node.Dockerfile
+  #   container_name: pinning-node
+  #   networks:
+  #     - titanh_network
+  #   volumes:
+  #     - ./config/pinning-node-1.json:/home/pinning_node/config/pinning-config.json
+  #   tty: true
+
+  #   ports:
+  #     - "9944:9944"
+  #     - "9615:9615"
+  #     - "30333:30333"

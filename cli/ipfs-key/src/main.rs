@@ -6,7 +6,7 @@ use std::io::Read;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "ipfs-cli-key")]
+#[command(name = "ipfs-key")]
 #[command(
 	about = "CLI tool to extract public key or sign messages using Ed25519 private key in PEM format"
 )]

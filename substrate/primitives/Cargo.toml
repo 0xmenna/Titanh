@@ -2,8 +2,6 @@
 name = "primitives"
 version = "0.0.0"
 license = "MIT-0"
-authors.workspace = true
-homepage.workspace = true
 repository.workspace = true
 edition.workspace = true
 publish = false
@@ -29,6 +27,7 @@ frame-system = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "
 sp-runtime = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 sp-std = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 sp-core = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
+sp-application-crypto = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 sp-arithmetic = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 pallet-balances = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
 pallet-timestamp = { git = "https://github.com/paritytech/polkadot-sdk.git", tag = "polkadot-v1.9.0", default-features = false }
@@ -51,6 +50,7 @@ std = [
 	"sp-std/std",
 	"sp-runtime/std",
 	"sp-arithmetic/std",
+	"sp-application-crypto/std",
 	"pallet-timestamp/std",
 	"pallet-balances/std",
 ]
