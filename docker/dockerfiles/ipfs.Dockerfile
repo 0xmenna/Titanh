@@ -1,73 +1,48 @@
-# Utilizza l'immagine ufficiale di Ubuntu come base
+# Use the latest Ubuntu base image
 FROM ubuntu:latest
 
-# Aggiorna i pacchetti e installa le dipendenze necessarie
+# Specify build arguments for architecture detection
+ARG TARGETARCH
+
+# Set environment variables
+ENV DEBIAN_FRONTEND=noninteractive
+ENV KUBO_VERSION=0.29.0
+
+# Install necessary dependencies
 RUN apt-get update && \
-    apt-get install -y curl wget ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y \
+    wget \
+    curl \
+    tar \
+    ca-certificates \
+    gnupg \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
 
-# Scarica e installa IPFS
-RUN wget https://dist.ipfs.io/go-ipfs/v0.18.1/go-ipfs_v0.18.1_linux-amd64.tar.gz && \
-    tar -xvzf go-ipfs_v0.18.1_linux-amd64.tar.gz && \
-    mv go-ipfs/ipfs /usr/local/bin/ipfs && \
-    rm -rf go-ipfs go-ipfs_v0.18.1_linux-amd64.tar.gz
+# Create a new user 'titanh-ipfs' with a home directory and sudo privileges
+RUN useradd -m -s /bin/bash titanh-ipfs && \
+    echo "titanh-ipfs ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers.d/titanh-ipfs && \
+    chmod 0440 /etc/sudoers.d/titanh-ipfs
 
-# Crea la directory per i dati di IPFS
-RUN mkdir -p /data/ipfs
+# Switch to the new user
+USER titanh-ipfs
+WORKDIR /home/titanh-ipfs
 
-# Imposta la directory di lavoro per IPFS
-WORKDIR /data/ipfs
+# Determine the architecture and set the appropriate binary URL
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+    ARCH="arm64"; \
+    else \
+    ARCH="amd64"; \
+    fi && \
+    echo "Detected architecture: $ARCH" && \
+    wget https://dist.ipfs.tech/kubo/v${KUBO_VERSION}/kubo_v${KUBO_VERSION}_linux-${ARCH}.tar.gz && \
+    tar -xvzf kubo_v${KUBO_VERSION}_linux-${ARCH}.tar.gz && \
+    cd kubo && \
+    sudo mv ipfs /usr/local/bin/ && \
+    sudo mv * /usr/local/bin/ && \
+    cd .. && \
+    rm -rf kubo_v${KUBO_VERSION}_linux-${ARCH}.tar.gz kubo
 
-# Espone le porte necessarie per IPFS
+
+# Expose the necessary IPFS ports
 EXPOSE 4001 5001 8080
-
-# Imposta la variabile d'ambiente per il profilo server
-ENV IPFS_PROFILE=server
-
-CMD ipfs daemon --init & bash
-# Comando per avviare il nodo IPFS
-#CMD ["ipfs", "daemon", "--init"]
-
-
-# #!/bin/bash
-
-# # Initialize node 1 if not already initialized
-# if [ ! -f /ipfs/node1/config ]; then
-#   export IPFS_PATH=/ipfs/node1
-#   ipfs init
-#   ipfs config Addresses.API /ip4/0.0.0.0/tcp/5001
-#   ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8080
-#   ipfs config Addresses.Swarm '["/ip4/0.0.0.0/tcp/4001"]'
-# fi
-
-# # Initialize node 2 if not already initialized
-# if [ ! -f /ipfs/node2/config ]; then
-#   export IPFS_PATH=/ipfs/node2
-#   ipfs init
-#   ipfs config Addresses.API /ip4/0.0.0.0/tcp/5002
-#   ipfs config Addresses.Gateway /ip4/0.0.0.0/tcp/8081
-#   ipfs config Addresses.Swarm '["/ip4/0.0.0.0/tcp/4002"]'
-# fi
-
-# # Start node 1 in background
-# export IPFS_PATH=/ipfs/node1
-# ipfs daemon &
-
-# # Start node 2 in background
-# export IPFS_PATH=/ipfs/node2
-# ipfs daemon &
-
-# # Wait for both nodes to finish
-# wait -n
-
-# version: '3'
-# services:
-#   ipfs:
-#     build: .
-#     ports:
-#       - "4001:4001"  # Swarm Node 1
-#       - "5001:5001"  # API Node 1
-#       - "8080:8080"  # Gateway Node 1
-#       - "4002:4002"  # Swarm Node 2
-#       - "5002:5002"  # API Node 2
-#       - "8081:8081"  # Gateway Node 2

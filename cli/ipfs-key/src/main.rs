@@ -1,81 +1,73 @@
+use base64::engine::general_purpose;
+use base64::Engine;
 use clap::{Parser, Subcommand};
-use sp_core::crypto::Pair as TraitPair;
-use sp_core::ed25519;
-use std::fs::{self, File};
-use std::io::Read;
-use std::path::PathBuf;
+use libp2p::identity::{ed25519::Keypair, Keypair as IdKeypair};
 
 #[derive(Parser)]
 #[command(name = "ipfs-key")]
 #[command(
-	about = "CLI tool to extract public key or sign messages using Ed25519 private key in PEM format"
+    about = "CLI tool to extract public key or sign messages using Ed25519 private key in PEM format"
 )]
 struct Cli {
-	#[command(subcommand)]
-	command: Commands,
+    #[command(subcommand)]
+    command: Commands,
 }
 
 #[derive(Subcommand)]
 enum Commands {
-	/// Get the public key from the private key PEM file
-	Public {
-		/// Path to the PEM file (optional)
-		#[arg(short, long)]
-		pem: Option<String>,
-	},
-	/// Sign a message with the private key
-	Sign {
-		/// The message to sign
-		message: String,
-		/// Path to the PEM file (optional)
-		#[arg(short, long)]
-		pem: Option<String>,
-	},
+    /// Generate ipfs peer infos: seed, privkey_protobuf, pubkey, peer_id
+    Generate {},
 }
 
-fn find_pem_file() -> Result<PathBuf, Box<dyn std::error::Error>> {
-	let current_dir = fs::read_dir(".")?;
-	for entry in current_dir {
-		let entry = entry?;
-		if let Some(extension) = entry.path().extension() {
-			if extension == "pem" {
-				return Ok(entry.path());
-			}
-		}
-	}
-	Err("No PEM file found in the current directory".into())
+fn generate_peer_info() -> Result<PeerInfo, String> {
+    // Generate the Keypair
+    let keypair = Keypair::generate();
+    let seed = keypair.secret();
+    let seed = seed.as_ref();
+    let pubkey = keypair.public().to_bytes();
+
+    let keypair = IdKeypair::from(keypair);
+
+    // Serialize the Keypair to protobuf encoding
+    let protobuf_bytes = keypair
+        .to_protobuf_encoding()
+        .map_err(|e| format!("Failed to serialize Keypair: {}", e))?;
+
+    // Base64-encode the serialized private key
+    let encoded_privkey = general_purpose::STANDARD.encode(&protobuf_bytes);
+
+    let peer_id = keypair.public().to_peer_id();
+
+    let peer_info = PeerInfo {
+        seed: seed.to_vec(),
+        privkey_protobuf: encoded_privkey,
+        pubkey: pubkey.to_vec(),
+        peer_id: peer_id.to_string(),
+    };
+
+    Ok(peer_info)
 }
 
-fn load_keypair(pem_path: Option<String>) -> Result<ed25519::Pair, Box<dyn std::error::Error>> {
-	let pem_path = match pem_path {
-		Some(p) => PathBuf::from(p),
-		None => find_pem_file()?,
-	};
-
-	let mut file = File::open(pem_path)?;
-	let mut pem_contents = String::new();
-	file.read_to_string(&mut pem_contents)?;
-
-	let pem = pem::parse(pem_contents)?;
-	let pair = ed25519::Pair::from_seed_slice(&pem.contents()[16..])?;
-	Ok(pair)
+struct PeerInfo {
+    seed: Vec<u8>,
+    privkey_protobuf: String,
+    pubkey: Vec<u8>,
+    peer_id: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let cli = Cli::parse();
+    let cli = Cli::parse();
 
-	match &cli.command {
-		Commands::Public { pem } => {
-			let pair = load_keypair(pem.clone())?;
-			let public_key = pair.public();
-			println!("Public Key: 0x{}", hex::encode(&public_key));
-		},
-		Commands::Sign { message, pem } => {
-			let pair = load_keypair(pem.clone())?;
-			let signature = pair.sign(message.as_bytes());
-			println!("Signature: 0x{}", hex::encode(signature));
-		},
-	}
+    match &cli.command {
+        Commands::Generate {} => {
+            let peer_info = generate_peer_info()?;
 
-	Ok(())
+            println!("Seed: 0x{}", hex::encode(peer_info.seed));
+            println!("Privkey_protobuf: {}", peer_info.privkey_protobuf);
+            println!("Pubkey: 0x{}", hex::encode(peer_info.pubkey));
+            println!("Peer_id: {}", peer_info.peer_id);
+        }
+    }
+
+    Ok(())
 }
