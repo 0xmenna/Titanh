@@ -3,8 +3,12 @@ version: '3'
 networks:
   titanh_network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.10.0.0/16
 
 services:
+
   # First substrate node
   # substrate-titanh-node-1:
   #   image: substrate-titanh-node
@@ -41,6 +45,7 @@ services:
   #     - substrate-titanh-node-1
   #   tty: true
   #   entrypoint: ["/home/titanh/scripts/validator-entrypoint.sh"]
+    
 
   titanh-ipfs-1:
     image: titanh-ipfs
@@ -58,8 +63,8 @@ services:
       - NODE_2_PRIVKEY=${IPFS_1_NODE_2_PRIVKEY}
       - NODE_2_PEERID=${IPFS_1_NODE_2_PEERID}
     ports:
-      - "5001:5001"
-      - "4001:4001"
+      - 5001:5001
+      - 8080:8080
     entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
     
 
@@ -69,7 +74,7 @@ services:
     networks:
       - titanh_network
     volumes:
-    -  ./scripts/ipfs:/home/titanh-ipfs/config
+    - ./scripts/ipfs:/home/titanh-ipfs/config
     environment:
       - IPFS_REPLICAS=2
 

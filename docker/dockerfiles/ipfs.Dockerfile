@@ -6,7 +6,7 @@ ARG TARGETARCH
 
 # Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
-ENV KUBO_VERSION=0.29.0
+ENV KUBO_VERSION=0.30.0
 
 # Install necessary dependencies
 RUN apt-get update && \
