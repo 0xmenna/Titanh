@@ -14,7 +14,7 @@ if [ -z "$CHAIN_SPEC" ]; then
 fi
 
 
-NODE_PATH="/home/titanh/target/release/titanh-node"
+NODE_PATH="$HOME/target/release/titanh-node"
 
 # Insert aura key
 echo "Inserting aura key..."

@@ -13,7 +13,7 @@ if [ -z "$NODE_NAME" ]; then
   exit 1
 fi
 
-NODE_PATH="/home/titanh/target/release/titanh-node"
+NODE_PATH="$HOME/target/release/titanh-node"
 
 # Function to fetch BOOTNODE_ID using curl
 fetch_bootnode_id() {

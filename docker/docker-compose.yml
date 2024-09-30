@@ -7,46 +7,47 @@ networks:
       config:
         - subnet: 172.10.0.0/16
 
+
 services:
 
   # First substrate node
-  # substrate-titanh-node-1:
-  #   image: substrate-titanh-node
-  #   container_name: substrate-titanh-node-1
-  #   networks:
-  #     titanh_network:
-  #   volumes:
-  #     - ./scripts/substrate-node:/home/titanh/scripts
-  #     - ./config/chain-specs:/home/titanh/specs
-  #   environment:
-  #     - CHAIN_SPEC=/home/titanh/specs/titanhSpecRaw.json
-  #     - NODE_NAME=substrate-titanh-node-1
-  #     - SEED_PHRASE=${SEED_SUBSTRATE_NODE_1}
-  #   tty: true
-  #   ports:
-  #     - "9944:9944"
-  #   entrypoint: ["/home/titanh/scripts/validator-entrypoint.sh"]
+  titanh-substrate-1:
+    image: titanh-substrate
+    container_name: titanh-substrate-1
+    networks:
+      titanh_network:
+    volumes:
+      - ./scripts/substrate:/home/titanh-substrate/scripts
+      - ./config/chain-specs:/home/titanh-substrate/specs
+    environment:
+      - CHAIN_SPEC=/home/titanh-substrate/specs/titanhSpecRaw.json
+      - NODE_NAME=titanh-substrate-1
+      - SEED_PHRASE=${SEED_SUBSTRATE_NODE_1}
+    tty: true
+    ports:
+      - 9944:9944
+    entrypoint: ["/home/titanh-substrate/scripts/validator-entrypoint.sh"]
 
   # Second substrate node
-  # substrate-titanh-node-2:
-  #   image: substrate-titanh-node
-  #   container_name: substrate-titanh-node-2
-  #   networks:
-  #     - titanh_network
-  #   volumes:
-  #     - ./scripts/substrate-node:/home/titanh/scripts
-  #     - ./config/chain-specs:/home/titanh/specs
-  #   environment:
-  #     - CHAIN_SPEC=/home/titanh/specs/titanhSpecRaw.json
-  #     - NODE_NAME=substrate-titanh-node-2
-  #     - SEED_PHRASE=${SEED_SUBSTRATE_NODE_2}
-  #     - BOOTNODE_HOST=substrate-titanh-node-1
-  #   depends_on:
-  #     - substrate-titanh-node-1
-  #   tty: true
-  #   entrypoint: ["/home/titanh/scripts/validator-entrypoint.sh"]
-    
+  titanh-substrate-2:
+    image: titanh-substrate
+    container_name: titanh-substrate-2
+    networks:
+      - titanh_network
+    volumes:
+      - ./scripts/substrate:/home/titanh-substrate/scripts
+      - ./config/chain-specs:/home/titanh-substrate/specs
+    environment:
+      - CHAIN_SPEC=/home/titanh-substrate/specs/titanhSpecRaw.json
+      - NODE_NAME=substrate-titanh-node-2
+      - SEED_PHRASE=${SEED_SUBSTRATE_NODE_2}
+      - BOOTNODE_HOST=titanh-substrate-1
+    depends_on:
+      - titanh-substrate-1
+    tty: true
+    entrypoint: ["/home/titanh-substrate/scripts/validator-entrypoint.sh"]
 
+  # Ipfs instances associated to titanh-pinning- 
   titanh-ipfs-1:
     image: titanh-ipfs
     container_name: titanh-ipfs-1
@@ -83,6 +84,8 @@ services:
 
       - NODE_2_PRIVKEY=${IPFS_2_NODE_2_PRIVKEY}
       - NODE_2_PEERID=${IPFS_2_NODE_2_PEERID}
+    depends_on:
+      - titanh-ipfs-1
     entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
 
 
@@ -97,8 +100,6 @@ services:
   #   volumes:
   #     - ./config/pinning-node-1.json:/home/pinning_node/config/pinning-config.json
   #   tty: true
-
-
   #   ports:
   #     - "9944:9944"
   #     - "9615:9615"
