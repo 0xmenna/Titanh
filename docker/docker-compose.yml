@@ -48,18 +48,20 @@ services:
     networks:
       - titanh_network
     volumes:
-    - ./config/ipfs/node-1:/home/titanh-ipfs/ipfs
-    - ./scripts/ipfs:/home/titanh-ipfs/scripts
-
+    - ./scripts/ipfs:/home/titanh-ipfs/config
     environment:
       - IPFS_REPLICAS=2
-    ports:
-      - "5001:5001"  # API
-      - "8080:8080"  # Gateway
-      - "4001:4001"  # Swarm
-    #entrypoint: ["/home/titanh-ipfs/scripts/ipfs-init.sh"]
-    command: sleep 100000000000
+    
+      - NODE_1_PRIVKEY=${IPFS_1_NODE_1_PRIVKEY}
+      - NODE_1_PEERID=${IPFS_1_NODE_1_PEERID}
 
+      - NODE_2_PRIVKEY=${IPFS_1_NODE_2_PRIVKEY}
+      - NODE_2_PEERID=${IPFS_1_NODE_2_PEERID}
+    ports:
+      - "5001:5001"
+      - "4001:4001"
+    entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
+    
 
   titanh-ipfs-2:
     image: titanh-ipfs
@@ -67,12 +69,16 @@ services:
     networks:
       - titanh_network
     volumes:
-    -  ./scripts/ipfs:/home/titanh-ipfs/scripts
-    - ./config/ipfs/node-2:/home/titanh-ipfs/ipfs
+    -  ./scripts/ipfs:/home/titanh-ipfs/config
     environment:
       - IPFS_REPLICAS=2
-    command: sleep 10000000000000000
-    #entrypoint: ["/home/titanh-ipfs/scripts/ipfs-init.sh"]
+
+      - NODE_1_PRIVKEY=${IPFS_2_NODE_1_PRIVKEY}
+      - NODE_1_PEERID=${IPFS_2_NODE_1_PEERID}
+
+      - NODE_2_PRIVKEY=${IPFS_2_NODE_2_PRIVKEY}
+      - NODE_2_PEERID=${IPFS_2_NODE_2_PEERID}
+    entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
 
 
 

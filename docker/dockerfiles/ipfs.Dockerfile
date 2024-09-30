@@ -11,6 +11,7 @@ ENV KUBO_VERSION=0.29.0
 # Install necessary dependencies
 RUN apt-get update && \
     apt-get install -y \
+    jq \
     wget \
     curl \
     tar \

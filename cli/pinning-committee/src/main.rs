@@ -1,13 +1,14 @@
 use api::TitanhApiBuilder;
 use clap::{Parser, Subcommand};
-use std::fs::{self};
+use std::fs;
+use std::io::BufRead;
 use std::path::PathBuf;
 
 pub const CHAIN_ENDPOINT: &str = "ws://127.0.0.1:9944";
 
 #[derive(Parser)]
 #[command(name = "pinning-committee-cli")]
-#[command(about = "CLI tool to manage on chain operations for the pinning committee")]
+#[command(about = "CLI tool to manage on-chain operations for the pinning committee")]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -35,42 +36,48 @@ enum Commands {
         /// The seed phrase of the validator account
         #[arg(short, long)]
         seed_phrase: String,
-        /// The path containing the private keys of the IPFS nodes in PEM format
+        /// The path to the file containing hex-encoded IPFS seeds, one per line
         #[arg(short, long)]
-        privkeys: Option<String>,
+        seeds_file: String,
     },
 }
 
-fn get_seeds_from_pem_files(
-    directory: Option<PathBuf>,
-) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
-    // Determine the directory to search
-    let dir_path = directory.unwrap_or_else(|| std::env::current_dir().unwrap());
+/// Reads a single file containing hex-encoded seeds, one per line.
+/// Returns a vector of seed byte arrays.
+fn get_seeds_from_hex_file(path: PathBuf) -> Result<Vec<Vec<u8>>, Box<dyn std::error::Error>> {
+    let file = fs::File::open(&path).map_err(|e| {
+        format!(
+            "Failed to open seeds file {}: {}",
+            path.display(),
+            e.to_string()
+        )
+    })?;
+    let reader = std::io::BufReader::new(file);
 
     let mut seeds = Vec::new();
 
-    // Iterate over entries in the directory
-    for entry in fs::read_dir(dir_path)? {
-        let entry = entry?;
-        let path = entry.path();
-
-        // Check if it's a `.pem` file
-        if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("pem") {
-            // Read the PEM file contents
-            let pem_contents = fs::read_to_string(&path)?;
-            // Parse the PEM content
-            let pem = pem::parse(pem_contents)?;
-            if pem.contents().len() >= 16 {
-                // Extract the seed starting from the 17th byte
-                let seed = pem.contents()[16..].to_vec();
-                seeds.push(seed);
-            } else {
-                return Err(From::from(format!(
-                    "Content of PEM file {} is too short",
-                    path.display()
-                )));
-            }
+    for (idx, line) in reader.lines().enumerate() {
+        let line = line.map_err(|e| {
+            format!(
+                "Failed to read line {} in seeds file {}: {}",
+                idx + 1,
+                path.display(),
+                e.to_string()
+            )
+        })?;
+        let trimmed = line.trim();
+        if trimmed.is_empty() {
+            continue; // Skip empty lines
         }
+        let seed = hex::decode(trimmed).map_err(|e| {
+            format!(
+                "Failed to decode hex on line {} in seeds file {}: {}",
+                idx + 1,
+                path.display(),
+                e.to_string()
+            )
+        })?;
+        seeds.push(seed);
     }
 
     Ok(seeds)
@@ -103,10 +110,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::RegisterPinningNode {
             seed_phrase,
-            privkeys,
+            seeds_file,
         } => {
-            let privkeys_path = privkeys.map(PathBuf::from);
-            let ipfs_seeds = get_seeds_from_pem_files(privkeys_path)?;
+            let seeds_path = PathBuf::from(seeds_file);
+            let ipfs_seeds = get_seeds_from_hex_file(seeds_path)?;
 
             let api = TitanhApiBuilder::rpc(CHAIN_ENDPOINT)
                 .seed(&seed_phrase)

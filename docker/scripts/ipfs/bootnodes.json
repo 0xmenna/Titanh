@@ -1,0 +1,24 @@
+{
+    "bootnodes": [
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4001,
+            "peerId": "12D3KooWQcT3jMRaRSJcZMEZ6fh3NKVGBdoLw4v6JogN2nhNEN2o"
+        },
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4002,
+            "peerId": "12D3KooWErSAyfc93Xm6eAFZMxnPCGTvKhvuVhgcegjXK2Ec2suk"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4001,
+            "peerId": "12D3KooWPNev59Be4g8z657F7R9vSN7Cj9ZkXPWghafJ6Zts3zzm"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4002,
+            "peerId": "12D3KooWPKkvZto5P3A3Ms7543BE8YHqp279ieeA6VEUyTT2vn8d"
+        }
+    ]
+}
