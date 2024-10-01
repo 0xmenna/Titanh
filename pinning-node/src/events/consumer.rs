@@ -27,28 +27,25 @@ impl NodeConsumer {
 
         // First, we dispatch the recovered batch of events
         let batch = events_pool.recovered_batch();
-        log::info!("CONSUMER: Dispatching recovered batch of events");
+        log::info!("Dispatching recovered batch..");
 
         self.dispatcher.async_dispatch(batch).await?;
         events_pool.clear_recovered_batch();
-        log::info!("CONSUMER: Dispatched recovered events successfully");
+        log::info!("Dispatched recovered events successfully");
 
         // Consume and dispatch upcoming events from the pool (aka channel), grouping them into batches.
         let mut consuming_batch = Batch::default();
         while let Some(event) = events_pool.read_handle().receive_events().await {
             consuming_batch.insert(event.clone());
-            log::info!("CONSUMER: Consuming event {:?} added to a batch", event);
+            log::info!("Consuming event {:?} added to a batch", event);
 
             if let Some(block_num) = event.block_barrier_event() {
-                log::info!(
-                    "CONSUMER: Consuming batch identified by block number: {}",
-                    block_num
-                );
+                log::info!("Consuming batch identified by block number: {}", block_num);
                 // Dispatch the batch
                 let dispatchable_batch = mem::take(&mut consuming_batch);
                 self.dispatcher.async_dispatch(dispatchable_batch).await?;
                 log::info!(
-                    "CONSUMER: Dispatching of batch with size: {} completed",
+                    "Dispatching of batch with size: {} completed",
                     consuming_batch.size()
                 );
             }

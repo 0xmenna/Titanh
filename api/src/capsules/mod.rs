@@ -86,7 +86,7 @@ impl<'a> CapsulesApi<'a> {
         let mut add_opts = Add::default();
         add_opts.pin = Some(false);
         // Add the data to IPFS
-        let ipfs_res = config.ipfs.add(data).await?;
+        let ipfs_res = config.ipfs.add_with_options(data, add_opts).await?;
 
         let cid = ipfs_res.hash.as_bytes().to_vec();
         let size: u128 = ipfs_res

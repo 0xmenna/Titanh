@@ -40,9 +40,7 @@ impl NodeProducer {
         let mut pool_write_handle = events_pool.write_handle();
         // Spawn a new task to subscribe to new capsule events.
         let subscription = tokio::spawn(async move {
-            log::info!(
-                "PRODUCER THREAD: Subscribing to finalized blocks for processing new events"
-            );
+            log::info!("Subscribing to finalized blocks for producing new events");
             let mut blocks_sub = client_api
                 .api()
                 .substrate_api
@@ -53,18 +51,18 @@ impl NodeProducer {
             while let Some(block) = blocks_sub.next().await {
                 let block = block?;
                 let block_num = block.number();
-                log::info!("PRODUCER THREAD: Processing block number: {}", block_num);
+                log::info!("Processing events at block number: {}", block_num);
 
                 if !pool_write_handle.is_block_number_sent() {
                     // Send the first block number to the channel so the main thread knows the upper bound for event recovery.
-                    log::info!("PRODUCER THREAD: Communicating the fetched block number to the main thread for event recovery");
+                    log::info!("Communicating the fetched block number to the main thread for event recovery");
 
                     pool_write_handle.send_block_number(block_num).await?;
                 }
                 let block = BlockInfo::new(block_num, block.hash().into());
                 let events = client_api.events_at(block).await?;
                 for event in events {
-                    log::info!("PRODUCER THREAD: Producing event: {:?}", event);
+                    log::info!("Producing event: {:?}", event);
 
                     // Send the new events to the channel for processing.
                     pool_write_handle.send_event(event)?;
