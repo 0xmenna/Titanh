@@ -88,19 +88,88 @@ services:
       - titanh-ipfs-1
     entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
 
-
+  
   titanh-pinning-1:
     image: titanh-pinning
     container_name: titanh-pinning-1
     networks:
       - titanh_network
     volumes:
-      - ./config/pinning:/home/titanh-pinning/config
+      - ../api:/home/titanh-pinning/api
+      - ../cli/pinning-committee:/home/titanh-pinning/cli/pinning-committee
+      - ../pinning-node:/home/titanh-pinning/pinning-node
+      - ./config/pinning/node-1:/home/titanh-pinning/config
+      - ./scripts/pinning/run-nodes-tmp.sh:/home/titanh-pinning/scripts/run-nodes.sh
     environment:
-      - PINNING_INSTANCES = 3
-      - VALIDATOR_SEED = ${SEED_SUBSTRATE_NODE_1}
+      - PINNING_INSTANCES=3
+      - VALIDATOR_SEED=${SEED_SUBSTRATE_NODE_1}
+      - CHAIN_RPC=ws://titanh-substrate-1:9944
+      - FAILURE_RETRY=2
     tty: true
-    ports:
-      - "9944:9944"
-      - "9615:9615"
-      - "30333:30333"
+    depends_on:
+      - titanh-substrate-1
+      - titanh-ipfs-1
+    entrypoint: ["/home/titanh-pinning/scripts/run-nodes.sh"]
+  
+
+  titanh-pinning-2:
+    image: titanh-pinning
+    container_name: titanh-pinning-2
+    networks:
+      - titanh_network
+    volumes:
+      - ../api:/home/titanh-pinning/api
+      - ../cli/pinning-committee:/home/titanh-pinning/cli/pinning-committee
+      - ../pinning-node:/home/titanh-pinning/pinning-node
+      - ./config/pinning/node-2:/home/titanh-pinning/config
+      - ./scripts/pinning/run-nodes-tmp.sh:/home/titanh-pinning/scripts/run-nodes.sh
+    environment:
+      - PINNING_INSTANCES=3
+      - VALIDATOR_SEED=${SEED_SUBSTRATE_NODE_2}
+      - CHAIN_RPC=ws://titanh-substrate-2:9944
+      - FAILURE_RETRY=2
+    tty: true
+    depends_on:
+      - titanh-substrate-2
+      - titanh-ipfs-2
+    entrypoint: ["/home/titanh-pinning/scripts/run-nodes.sh"]
+
+
+  # titanh-pinning-1:
+  #   image: titanh-pinning
+  #   container_name: titanh-pinning-1
+  #   networks:
+  #     - titanh_network
+  #   volumes:
+  #     - ./config/pinning/node-1:/home/titanh-pinning/config
+  #     - ./scripts/pinning/run-nodes.sh:/home/titanh-pinning/scripts/run-nodes.sh
+  #   environment:
+  #     - PINNING_INSTANCES=3
+  #     - VALIDATOR_SEED=${SEED_SUBSTRATE_NODE_1}
+  #     - CHAIN_RPC=ws://titanh-substrate-1:9944
+  #     - FAILURE_RETRY=2
+  #   tty: true
+  #   depends_on:
+  #     - titanh-substrate-1
+  #     - titanh-ipfs-1
+  #   entrypoint: ["/home/titanh-pinning/scripts/run-nodes.sh"]
+  
+
+  # titanh-pinning-2:
+  #   image: titanh-pinning
+  #   container_name: titanh-pinning-2
+  #   networks:
+  #     - titanh_network
+  #   volumes:
+  #     - ./config/pinning/node-2:/home/titanh-pinning/config
+  #     - ./scripts/pinning/run-nodes.sh:/home/titanh-pinning/scripts/run-nodes.sh
+  #   environment:
+  #     - PINNING_INSTANCES=3
+  #     - VALIDATOR_SEED=${SEED_SUBSTRATE_NODE_2}
+  #     - CHAIN_RPC=ws://titanh-substrate-2:9944
+  #     - FAILURE_RETRY=2
+  #   tty: true
+  #   depends_on:
+  #     - titanh-substrate-2
+  #     - titanh-ipfs-2
+  #   entrypoint: ["/home/titanh-pinning/scripts/run-nodes.sh"]

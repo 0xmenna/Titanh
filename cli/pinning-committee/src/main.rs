@@ -4,8 +4,6 @@ use std::fs;
 use std::io::BufRead;
 use std::path::PathBuf;
 
-pub const CHAIN_ENDPOINT: &str = "ws://127.0.0.1:9944";
-
 #[derive(Parser)]
 #[command(name = "pinning-committee-cli")]
 #[command(about = "CLI tool to manage on-chain operations for the pinning committee")]
@@ -21,6 +19,9 @@ enum Commands {
         /// The seed phrase of the sudo account
         #[arg(short, long)]
         seed_phrase: String,
+        /// The chain rpc endpoint
+        #[arg(short, long)]
+        rpc: String,
         /// The content replication factor
         #[arg(short, long)]
         rep_factor: u32,
@@ -36,6 +37,9 @@ enum Commands {
         /// The seed phrase of the validator account
         #[arg(short, long)]
         seed_phrase: String,
+        /// The chain rpc endpoint
+        #[arg(short, long)]
+        rpc: String,
         /// The path to the file containing hex-encoded IPFS seeds, one per line
         #[arg(short, long)]
         seeds_file: String,
@@ -90,14 +94,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match cli.command {
         Commands::CommitteeConfig {
             seed_phrase,
+            rpc,
             rep_factor,
             ipfs_replicas,
             pinning_nodes,
         } => {
-            let api = TitanhApiBuilder::rpc(CHAIN_ENDPOINT)
-                .seed(&seed_phrase)
-                .build()
-                .await;
+            let api = TitanhApiBuilder::rpc(&rpc).seed(&seed_phrase).build().await;
 
             let tx_hash = api
                 .pinning_committee()
@@ -110,15 +112,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         Commands::RegisterPinningNode {
             seed_phrase,
+            rpc,
             seeds_file,
         } => {
             let seeds_path = PathBuf::from(seeds_file);
             let ipfs_seeds = get_seeds_from_hex_file(seeds_path)?;
 
-            let api = TitanhApiBuilder::rpc(CHAIN_ENDPOINT)
-                .seed(&seed_phrase)
-                .build()
-                .await;
+            let api = TitanhApiBuilder::rpc(&rpc).seed(&seed_phrase).build().await;
 
             let tx_hash = api
                 .pinning_committee()

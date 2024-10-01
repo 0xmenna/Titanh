@@ -19,12 +19,16 @@ impl PinningNodeController {
     pub async fn bootstrap(config: Config) -> Self {
         // Build the substrate client to read the blockchain related data
         let sub_client = SubstrateClientBuilder::from_config(&config).build().await;
+        log::info!(
+            "Substrate client initialized at block: {:?}",
+            sub_client.block_num()
+        );
 
         let ring = sub_client.ring().await;
         let replication_factor = ring.replication();
 
-        // Node checkpoint
-        let db = DbCheckpoint::new(replication_factor);
+        // Node checkpointing db
+        let db = DbCheckpoint::from_config(replication_factor, config.node_id());
         let checkpoint = db.get_checkpoint().unwrap();
         // Block number until which the node has processed events.
         // The keytable is updated at this block.

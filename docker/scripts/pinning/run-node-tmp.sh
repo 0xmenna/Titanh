@@ -3,6 +3,9 @@
 
 set -e
 
+cargo build --manifest-path $HOME/pinning-node/Cargo.toml --release
+cargo build --manifest-path $HOME/cli/pinning-committee/Cargo.toml --release
+
 error_exit() {
     echo "Error: $1" >&2
     exit 1
