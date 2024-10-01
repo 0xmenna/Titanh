@@ -12,9 +12,8 @@
 .direnv
 
 # Ignore env files and keys
-./docker/.env
-**/.env
-./keys
+# ./docker/.env
+# ./keys
 
 
 
