@@ -85,18 +85,18 @@ impl SubstrateClient {
         let ring = self
             .api
             .pinning_committee()
-            .pinning_ring(Some(self.block.number))
+            .pinning_ring_at(self.block.hash)
             .await
             .expect("Pinning ring is expected to be initialized");
 
         ring
     }
 
-    pub fn block_num(&self) -> BlockNumber {
-        self.block.number
-    }
-
     pub fn arc(self) -> AtomicRef<Self> {
         ref_builder::create_atomic_ref(self)
+    }
+
+    pub fn height(&self) -> BlockNumber {
+        self.block.number
     }
 }

@@ -3,9 +3,6 @@
 
 set -e
 
-cargo build --manifest-path $HOME/pinning-node/Cargo.toml --release
-cargo build --manifest-path $HOME/cli/pinning-committee/Cargo.toml --release
-
 error_exit() {
     echo "Error: $1" >&2
     exit 1
@@ -80,21 +77,4 @@ do
         --seed-phrase "$VALIDATOR_SEED" \
         --rpc "$CHAIN_RPC" \
         --seeds-file "$IPFS_SEEDS_PATH"
-done
-
-for (( i=1; i<=PINNING_INSTANCES; i++ ))
-do
-    echo "=============================================="
-    echo "Starting virtual node $i..."
-    echo "=============================================="
-    
-    idx=$((i - 1))
-
-    # Start the pinning node
-    "$PINNING_NODE_PATH" start \
-        --seed "$VALIDATOR_SEED" \
-        --idx "$idx" \
-        --rpc "$CHAIN_RPC" \
-        --retries "$FAILURE_RETRY" \
-        --ipfs-peers-config "$IPFS_PUBKEYS_PATH"
 done

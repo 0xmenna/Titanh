@@ -20,12 +20,13 @@ impl PeersConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct IpfsPeer {
     pub rpc_url: String,
     pub peer_pubkey: String,
 }
 
+#[derive(Debug)]
 pub struct Config {
     /// The pinning node index within the validators pinning nodes
     pub node_idx: u32,

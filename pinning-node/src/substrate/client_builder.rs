@@ -13,8 +13,6 @@ pub struct SubstratePinningConfig<'a> {
     pub rpc_url: &'a str,
     /// The seed phrase of the validator
     pub seed_phrase: &'a str,
-    /// The password of the seed phrase
-    pub password: Option<&'a str>,
 }
 
 impl<'a> From<&'a Config> for SubstratePinningConfig<'a> {
@@ -23,7 +21,6 @@ impl<'a> From<&'a Config> for SubstratePinningConfig<'a> {
             node_id: config.node_id(),
             rpc_url: &config.chain_node_endpoint,
             seed_phrase: &config.seed_phrase,
-            password: None,
         }
     }
 }
@@ -45,13 +42,12 @@ impl<'a> ClientBuilder<'a, SubstrateClient> for SubstrateClientBuilder<'a> {
             .build()
             .await;
 
-        let maybe_block = DbCheckpoint::get_blocknumber_from_db_node(self.config.node_id);
-
-        let block = if let Some(block_num) = maybe_block {
+        let maybe_block_num = DbCheckpoint::get_blocknumber_from_db_node(self.config.node_id);
+        let block = if let Some(block_num) = maybe_block_num {
             let hash = api.block_hash(block_num).await.unwrap();
             BlockInfo::new(block_num, hash)
         } else {
-            api.current_block().await.unwrap()
+            api.latest_finalized_block().await.unwrap()
         };
 
         SubstrateClient::new(api, self.config.node_id, block)

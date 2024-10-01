@@ -6,7 +6,7 @@ use sled::{Batch as DbBatch, Db};
 
 #[derive(Encode, Decode, Clone)]
 pub struct Checkpoint {
-    /// The block number checkpoint. Holds the block number until which the node has processed events.
+    /// The block checkpoint. Holds the block informations until which the node has processed events.
     block_num: BlockNumber,
     /// The keytable managed by the pinning node, up to date with the block number.
     keytable: FaultTolerantKeyTable,
@@ -20,7 +20,7 @@ impl Checkpoint {
         }
     }
 
-    pub fn at(&self) -> BlockNumber {
+    pub fn height(&self) -> BlockNumber {
         self.block_num
     }
 
@@ -42,6 +42,7 @@ impl DbCheckpoint {
     }
 
     fn open_db_from_node(node_id: NodeId) -> Db {
+        let node_id = hex::encode(&node_id.encode()[..=8]);
         let db_name = format!("db_{}", node_id);
         sled::open(db_name).unwrap()
     }
@@ -49,7 +50,7 @@ impl DbCheckpoint {
     // This is unbounded to the struct instance because we still don't know the `rep_factor`, since it's a value fetched remotely, based on the block number, this is why we read this first.
     pub fn get_blocknumber_from_db_node(node_id: NodeId) -> Option<BlockNumber> {
         let db = Self::open_db_from_node(node_id);
-        let block_num = Self::read_blocknumber(&db).expect("Failed to retrieve block number");
+        let block_num = Self::read_blocknumber(&db).expect("Failed to retrieve block");
 
         block_num
     }
@@ -91,7 +92,7 @@ impl DbCheckpoint {
     /// Commits to storage the block number that the node has processed in terms of events and the affected rows in the keytable.
     pub fn commit_checkpoint(&self, block_num: BlockNumber, rows: Vec<&TableRow>) -> Result<()> {
         let mut batch = DbBatch::default();
-        batch.insert("block_num", block_num.encode());
+        batch.insert(BLOCK_NUM_KEY, block_num.encode());
         for (idx, row) in rows.iter().enumerate() {
             let key = format!("partition_{}", idx);
             batch.insert(key.as_bytes(), row.encode());
@@ -104,8 +105,10 @@ impl DbCheckpoint {
     }
 
     fn read_blocknumber(db: &Db) -> Result<Option<BlockNumber>> {
-        let block_num = Self::read_checkpoint_value::<BlockNumber>(db, "block_num")?;
+        let block_num = Self::read_checkpoint_value::<BlockNumber>(db, BLOCK_NUM_KEY)?;
 
         Ok(block_num)
     }
 }
+
+pub const BLOCK_NUM_KEY: &str = "block_num";

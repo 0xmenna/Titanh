@@ -1,18 +1,19 @@
 use super::titanh;
+use codec::{Decode, Encode};
 use sp_core::H256;
 use subxt::backend::legacy::LegacyRpcMethods;
 use subxt::{blocks::BlockRef, tx::PairSigner, OnlineClient, SubstrateConfig};
 
-#[derive(Clone)]
+#[derive(Copy, Clone, Encode, Decode)]
 pub struct BlockInfo {
-	pub number: BlockNumber,
-	pub hash: BlockHash,
+    pub number: BlockNumber,
+    pub hash: BlockHash,
 }
 
 impl BlockInfo {
-	pub fn new(number: BlockNumber, hash: BlockHash) -> Self {
-		Self { number, hash }
-	}
+    pub fn new(number: BlockNumber, hash: BlockHash) -> Self {
+        Self { number, hash }
+    }
 }
 
 pub type BlockNumber = titanh::system::storage::types::number::Number;
@@ -25,17 +26,17 @@ pub type Signer = PairSigner<SubstrateConfig, KeyPair>;
 /// Chain's Rpc methods
 pub type Rpc = LegacyRpcMethods<SubstrateConfig>;
 
-#[derive(Clone)]
-pub struct BlockHash(H256);
+#[derive(Clone, Encode, Decode, Copy)]
+pub struct BlockHash(pub H256);
 
 impl From<BlockHash> for BlockRef<H256> {
-	fn from(block_hash: BlockHash) -> Self {
-		BlockRef::from(block_hash.0)
-	}
+    fn from(block_hash: BlockHash) -> Self {
+        BlockRef::from(block_hash.0)
+    }
 }
 
 impl From<H256> for BlockHash {
-	fn from(h: H256) -> Self {
-		BlockHash(h)
-	}
+    fn from(h: H256) -> Self {
+        BlockHash(h)
+    }
 }

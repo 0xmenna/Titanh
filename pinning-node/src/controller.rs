@@ -17,22 +17,23 @@ pub struct PinningNodeController {
 
 impl PinningNodeController {
     pub async fn bootstrap(config: Config) -> Self {
+        env_logger::init();
         // Build the substrate client to read the blockchain related data
         let sub_client = SubstrateClientBuilder::from_config(&config).build().await;
         log::info!(
-            "Substrate client initialized at block: {:?}",
-            sub_client.block_num()
+            "Substrate client initialized at block number: {}",
+            sub_client.height()
         );
-
         let ring = sub_client.ring().await;
         let replication_factor = ring.replication();
 
         // Node checkpointing db
         let db = DbCheckpoint::from_config(replication_factor, config.node_id());
         let checkpoint = db.get_checkpoint().unwrap();
+        log::info!("Checkpoint is at block number: {}", checkpoint.height());
         // Block number until which the node has processed events.
-        // The keytable is updated at this block.
-        let block_num = checkpoint.at();
+        // The keytable is updated at this block number.
+        let block_num = checkpoint.height();
 
         let sub_client = sub_client.arc();
         let events_pool = NodeEventsPool::new().mutable_ref();
@@ -41,7 +42,10 @@ impl PinningNodeController {
 
         // Build the IPFS client for ipfs related operations (e.g. pinning, unpinning, reading files)
         let ipfs_client = IpfsClientBuilder::from_config(&config).build().await;
-
+        log::info!(
+            "IPFS client initialized successfully using replicas: {:?}",
+            config.ipfs_peers
+        );
         // Event dispatcher
         let dispatcher = NodeEventDispatcher::from_config(
             db,
