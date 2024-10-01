@@ -10,20 +10,24 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user 'titanh'
-RUN useradd -m -s /bin/bash titanh
+# Create a non-root user 'titanh-pinning'
+RUN useradd -m -s /bin/bash titanh-pinning
 
-# Switch to the 'titanh' user
+# Switch to the 'titanh-pinning' user
 USER titanh-pinning
 
 # Set the working directory to the user's home
 WORKDIR /home/titanh-pinning
 
 # Install Rust and the specific toolchain for Substrate (nightly with additional components)
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+    . $HOME/.cargo/env
 
-# Add Cargo to the PATH persistently
-ENV PATH="/home/home/titanh-pinning/.cargo/bin:${PATH}"
+# Add Cargo to the PATH persistently (fixed the path here)
+ENV PATH="/home/titanh-pinning/.cargo/bin:${PATH}"
+
+# Verify rustup is installed and accessible
+RUN echo $PATH && rustup --version
 
 # Set the default toolchain and add necessary components
 RUN rustup default stable && \
@@ -33,10 +37,10 @@ RUN rustup default stable && \
     rustup component add clippy rustfmt
 
 # Copy the entire pinning-node directory into the container
-COPY --chown=titanh:titanh . /home/titanh-pinning
+COPY --chown=titanh-pinning:titanh-pinning ./api ./api
+COPY --chown=titanh-pinning:titanh-pinning ./pinning-node ./pinning-node
+COPY --chown=titanh-pinning:titanh-pinning ./cli/pinning-committee ./cli/pinning-committee
 
-# Set the working directory to the node directory
-WORKDIR /home/titanh-pinning
-
-# Build the project
-RUN cargo clean && cargo build --release
+# Build the Rust project
+RUN cargo build --manifest-path ./pinning-node/Cargo.toml --release
+RUN cargo build --manifest-path ./cli/pinning-committee/Cargo.toml --release

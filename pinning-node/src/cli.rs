@@ -1,0 +1,52 @@
+use clap::{Parser, Subcommand};
+
+use crate::utils::config::{Config, PeersConfig};
+
+#[derive(Parser)]
+#[command(name = "pinning-node")]
+#[command(about = "CLI to start a pinning node")]
+pub struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+impl Cli {
+    pub fn parse_config() -> Config {
+        let cli = Self::parse();
+        match cli.command {
+            Commands::Start {
+                seed,
+                idx,
+                rpc,
+                retries,
+                ipfs_peers_config,
+            } => {
+                let peers_config = PeersConfig::from_json(&ipfs_peers_config);
+
+                Config::new(seed, idx, rpc, retries, peers_config.ipfs_peers)
+            }
+        }
+    }
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Starts the pinning node
+    Start {
+        #[arg(short, long)]
+        /// The seed phrase of the validator associated to the pinning node
+        seed: String,
+        #[arg(short, long)]
+        /// The pinning node index within the validators pinning nodes (based on the chain state)
+        idx: u32,
+        #[arg(short, long)]
+        /// The endpoint of the chain rpc node
+        rpc: String,
+        /// The number of retries for a failed pinning operation
+        #[arg(short, long)]
+        retries: u8,
+        /// The path of the json file containing the ipfs peers bounded to the pinning node
+        #[arg(short, long)]
+        ipfs_peers_config: String,
+    },
+}

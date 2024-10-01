@@ -1,4 +1,3 @@
-use anyhow::Result;
 use api::{common_types::KeyPair, pinning_committee_types::NodeId};
 use codec::Encode;
 use serde::Deserialize;
@@ -6,15 +5,30 @@ use sp_core::{Blake2Hasher, Hasher, Pair};
 use std::fs;
 
 #[derive(Deserialize)]
+pub struct PeersConfig {
+    pub ipfs_peers: Vec<IpfsPeer>,
+}
+
+impl PeersConfig {
+    pub fn from_json(path: &str) -> Self {
+        let file_content: String =
+            fs::read_to_string(path).expect("Failed to read the config file");
+        let peers_config: PeersConfig =
+            serde_json::from_str(&file_content).expect("Failed to parse the config file");
+
+        peers_config
+    }
+}
+
+#[derive(Deserialize)]
 pub struct IpfsPeer {
     pub rpc_url: String,
     pub peer_pubkey: String,
 }
 
-#[derive(Deserialize)]
 pub struct Config {
-    /// The node id within the same validator node
-    pub node_id: u32,
+    /// The pinning node index within the validators pinning nodes
+    pub node_idx: u32,
     /// The seed phrase of the validator
     pub seed_phrase: String,
     /// The endpoint of the chain rpc node
@@ -27,13 +41,20 @@ pub struct Config {
 
 impl Config {
     // Read config from a JSON file
-    pub fn from_json() -> Config {
-        let file_content: String = fs::read_to_string("config/pinning-config.json")
-            .expect("Failed to read the config file");
-        let config: Config =
-            serde_json::from_str(&file_content).expect("Failed to parse the config file");
-
-        return config;
+    pub fn new(
+        seed_phrase: String,
+        node_idx: u32,
+        chain_node_endpoint: String,
+        failure_retry: u8,
+        ipfs_peers: Vec<IpfsPeer>,
+    ) -> Self {
+        Self {
+            node_idx,
+            seed_phrase,
+            chain_node_endpoint,
+            ipfs_peers,
+            failure_retry,
+        }
     }
 
     pub fn node_id(&self) -> NodeId {
@@ -45,10 +66,10 @@ impl Config {
             .public();
         ids.extend_from_slice(&validator_id.encode());
 
-        ids.extend_from_slice(&self.node_id.encode());
+        ids.extend_from_slice(&self.node_idx.encode());
 
         for peer in &self.ipfs_peers {
-            let pubkey = decode_hex_str(&peer.peer_pubkey).expect("Invalid hex pubkey");
+            let pubkey = hex::decode(&peer.peer_pubkey).expect("Invalid peer pubkey");
             ids.extend_from_slice(&pubkey);
         }
 
@@ -61,14 +82,4 @@ impl Config {
             .map(|peer| peer.rpc_url.as_str())
             .collect()
     }
-}
-
-pub fn decode_hex_str(hex_str: &str) -> Result<Vec<u8>> {
-    if !hex_str[..2].starts_with("0x") {
-        return Err(anyhow::anyhow!("Hex string should start with 0x"));
-    }
-    let hex_str = &hex_str[2..];
-    let decoded_hex = hex::decode(hex_str)?;
-
-    Ok(decoded_hex)
 }

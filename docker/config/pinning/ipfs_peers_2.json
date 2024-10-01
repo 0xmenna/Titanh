@@ -1,0 +1,12 @@
+{
+  "ipfs_peers": [
+    {
+      "rpc_url": "http://titanh-ipfs-2:5001",
+      "peer_pubkey": "c96d73ad23f4fce57ff4b245ab980f77da49c9002b2851b759a30c35bd21c7ea"
+    },
+    {
+      "rpc_url": "http://titanh-ipfs-2:5002",
+      "peer_pubkey": "c8af80d985aeb6f6501b2add1cb8225afc5785f2d16c5a501ce42e62508dbe26"
+    }
+  ]
+}

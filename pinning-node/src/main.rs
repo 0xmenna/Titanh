@@ -1,5 +1,7 @@
+use cli::Cli;
 use controller::PinningNodeController;
 
+mod cli;
 mod controller;
 mod db;
 mod events;
@@ -10,6 +12,8 @@ mod utils;
 
 #[tokio::main]
 async fn main() {
-	let node = PinningNodeController::bootstrap().await;
-	node.execute().await
+    let config = Cli::parse_config();
+
+    let node = PinningNodeController::bootstrap(config).await;
+    node.execute().await
 }
