@@ -107,6 +107,12 @@ pub mod pallet {
     #[pallet::getter(fn pinning_nodes_ring)]
     pub type PinningNodesRing<T: Config> = StorageValue<_, PinningRing<T>, ValueQuery>;
 
+    /// Whether an ipfs key has been already bounded to a pinning node
+    #[pallet::storage]
+    #[pallet::getter(fn ipfs_key_exists)]
+    pub type IsIpfsKeyAssigned<T: Config> =
+        StorageMap<_, Blake2_128Concat, T::IPFSNodeId, bool, ValueQuery>;
+
     #[pallet::genesis_config]
     #[derive(frame_support::DefaultNoBound)]
     pub struct GenesisConfig<T: Config> {
@@ -187,6 +193,8 @@ pub mod pallet {
         IpfsKeyAlreadyWaiting,
         /// Ipfs key not found
         IpfsKeyNotFound,
+        /// The IPFS key is already assigned
+        IpfsKeyAlreadyAssigned,
     }
 
     #[pallet::call]
@@ -261,6 +269,11 @@ pub mod pallet {
             // Check that the extrinsic was signed by a validator.
             let validator = Self::enure_validator(origin)?;
 
+            ensure!(
+                !IsIpfsKeyAssigned::<T>::get(&registration.key),
+                Error::<T>::IpfsKeyAlreadyAssigned
+            );
+
             let validator_pinning_nodes = ValidatorPinningNodes::<T>::get(&validator).len();
             let ipfs_replicas = NumOfIpfsReplicas::<T>::get() as usize;
 
@@ -282,11 +295,7 @@ pub mod pallet {
 
             // Verify if there are enough ipfs keys to assing to a new pinning node
             let pinning_node = if waiting_ipfs_keys.len() == ipfs_replicas {
-                let pinning_id = Self::compute_pinning_node_id(
-                    &waiting_ipfs_keys,
-                    &validator,
-                    validator_pinning_nodes as u32,
-                );
+                let pinning_id = Self::compute_pinning_node_id(&waiting_ipfs_keys);
                 // Insert the new pinning node in the ring.
                 // The position is based on the computed id: hash(ipfs_key1||ipfs_key2||...||ipfs_keyN)
                 let mut ring = PinningNodesRing::<T>::get();
@@ -299,10 +308,15 @@ pub mod pallet {
                 // Update the ring and the validator pinning nodes
                 PinningNodesRing::<T>::put(ring);
                 ValidatorPinningNodes::<T>::mutate(&validator, |nodes| nodes.push(pinning_id));
+                // Mark the ipfs keys as assigned
+                waiting_ipfs_keys.iter().for_each(|key| {
+                    IsIpfsKeyAssigned::<T>::insert(key, true);
+                });
                 // Assign the ipfs keys to the new pinning node (associated to the validator)
                 PinningNodeIpfsKeys::<T>::insert(pinning_id, waiting_ipfs_keys);
                 // Clear the unassigned ipfs keys
                 WaitingValidatorIpfsKeys::<T>::remove(&validator);
+
                 Some(pinning_id)
             } else {
                 WaitingValidatorIpfsKeys::<T>::insert(&validator, waiting_ipfs_keys);
@@ -365,6 +379,11 @@ pub mod pallet {
             PinningNodesRing::<T>::put(ring);
 
             // Remove the ipfs keys associated to the pinning node
+            let ipfs_keys = PinningNodeIpfsKeys::<T>::get(&pinning_node);
+            ipfs_keys.iter().for_each(|key| {
+                IsIpfsKeyAssigned::<T>::remove(key);
+            });
+
             PinningNodeIpfsKeys::<T>::remove(&pinning_node);
 
             Self::deposit_event(Event::<T>::PinningNodeRemoval {
@@ -427,14 +446,8 @@ pub mod pallet {
 }
 
 impl<T: Config> Pallet<T> {
-    fn compute_pinning_node_id(
-        ipfs_keys: &IpfsKeys<T>,
-        validator_id: &T::ValidatorId,
-        pinning_node_idx: u32, // The index of the pinning node in the validator's pinning nodes
-    ) -> PinningNodeIdOf<T> {
+    fn compute_pinning_node_id(ipfs_keys: &IpfsKeys<T>) -> PinningNodeIdOf<T> {
         let mut ids = Vec::new();
-        ids.extend_from_slice(&validator_id.encode());
-        ids.extend_from_slice(&pinning_node_idx.encode());
         ipfs_keys
             .iter()
             .for_each(|key| ids.extend_from_slice(&key.encode()));

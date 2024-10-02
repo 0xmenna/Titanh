@@ -1,0 +1,28 @@
+{
+    "keys": [
+        {
+            "privateKey": "CAESQIvWQsKO7qHBRfGkQ0Hs1DG3mgqFth1wOYEFJxzujqFPyW1zrSP0/OV/9LJFq5gPd9pJyQArKFG3WaMMNb0hx+o=",
+            "peerId": "12D3KooWPNev59Be4g8z657F7R9vSN7Cj9ZkXPWghafJ6Zts3zzm"
+        }, 
+        {
+            "privateKey": "CAESQGx6K6+GD/HMGLFYc3DXQia55QuqejspdZFs68uUnKfVyK+A2YWutvZQGyrdHLgiWvxXhfLRbFpQHOQuYlCNviY=",
+            "peerId": "12D3KooWPKkvZto5P3A3Ms7543BE8YHqp279ieeA6VEUyTT2vn8d"
+        },
+        {
+            "privateKey": "CAESQAQNv42ZwceNIbbXZ4uhnHpu36O5ShnBOYc44w47oKXlmyfMiVQ8XuuHDSiMg0MwNK965E8ff+56M8nEJnjkOS4=",
+            "peerId": "12D3KooWLG2ZTMTqf65asDe69jRp2onL6dkKLMLcTNvwwuVcfWsf"
+        },
+        {
+            "privateKey": "CAESQPjKjNPXDwx/APlmIHSFrMuH7JbKD3KQgyRaHK54K7MQZTBnrXOunKEjNF30JtYEI5yABt10RA59H/ad69JcfSc=",
+            "peerId": "12D3KooWGdN9ziEMWx9jvjJ9ybA6Bpj1EmYegrtBP2GoyWE1fCdc"
+        },
+        {
+            "privateKey": "CAESQGNgn/XHbFUjQc0jBa0krtDaHj+pgKO3z8xxnjv7IRUTwRq8/l4cnUjf9dgydbsk3cg0ldrCNuvinJFlyCeUw+Y=",
+            "peerId": "12D3KooWNpAW4jnAX3mpesw4ufc4JrFevt1QUcGHK4XViosqPe13"
+        },
+        {
+            "privateKey": "CAESQEUWIcjUeHqdVXVOwsB1B/Ls+EXAim/ncHs+9ezv977Rxk25YsL1KcswwT8Gei+6WImb+AlYaFATdPlZg7jbhtk=",
+            "peerId": "12D3KooWPATdeMfWLGdJB5qdZRSfDfDYgJfYUuS46PpKM4xXifhA"
+        }
+    ]
+}

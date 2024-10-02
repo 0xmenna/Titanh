@@ -1,13 +1,13 @@
 use crate::{
-	db::checkpointing::DbCheckpoint as DbDispatcher,
-	ipfs::client::IpfsClient as PinDispatcher,
-	substrate::client::SubstrateClient,
-	types::{
-		batch::Batch,
-		events::{CheckpointEvent, NodeEvent},
-		keytable::FaultTolerantKeyTable,
-	},
-	utils::ref_builder::AtomicRef,
+    db::checkpointing::DbCheckpoint as DbDispatcher,
+    ipfs::client::IpfsClient as PinDispatcher,
+    substrate::client::SubstrateClient,
+    types::{
+        batch::Batch,
+        events::{CheckpointEvent, NodeEvent},
+        keytable::FaultTolerantKeyTable,
+    },
+    utils::ref_builder::AtomicRef,
 };
 use anyhow::Result;
 use api::{common_types::BlockNumber, pinning_committee_types::PinningRing};
@@ -17,82 +17,89 @@ use traits::{AsyncMutableDispatcher, Dispatcher, MutableDispatcher};
 
 /// Event dispatcher
 pub struct NodeEventDispatcher {
-	/// Dispatcher for the database (checkpointing)
-	db: DbDispatcher,
-	/// Dispatcher for pinning operations on IPFS
-	pinning: PinDispatcher,
-	/// Dispatcher for capsule keys operations
-	keys: KeysDispatcher,
-	/// The block number until which the node has checkpointed the processed events.
-	block_num: BlockNumber,
+    /// Dispatcher for the database (checkpointing)
+    db: DbDispatcher,
+    /// Dispatcher for pinning operations on IPFS
+    pinning: PinDispatcher,
+    /// Dispatcher for capsule keys operations
+    keys: KeysDispatcher,
+    /// The block number until which the node has checkpointed the processed events.
+    block_num: BlockNumber,
 }
 
 impl NodeEventDispatcher {
-	pub fn from_config(
-		db: DbDispatcher,
-		pin: PinDispatcher,
-		sub_client: AtomicRef<SubstrateClient>,
-		ring: PinningRing,
-		keytable: FaultTolerantKeyTable,
-		block_num: BlockNumber,
-	) -> Self {
-		let keys: KeysDispatcher = KeysDispatcher::new(sub_client, ring, keytable);
+    pub fn from_config(
+        db: DbDispatcher,
+        pin: PinDispatcher,
+        sub_client: AtomicRef<SubstrateClient>,
+        ring: PinningRing,
+        keytable: FaultTolerantKeyTable,
+        block_num: BlockNumber,
+    ) -> Self {
+        let keys: KeysDispatcher = KeysDispatcher::new(sub_client, ring, keytable);
 
-		Self { db, pinning: pin, keys, block_num }
-	}
+        Self {
+            db,
+            pinning: pin,
+            keys,
+            block_num,
+        }
+    }
 }
 
 #[async_trait(?Send)]
 impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
-	async fn async_dispatch(&mut self, batch: Batch<NodeEvent>) -> Result<()> {
-		for (idx, event) in batch.into_iter().enumerate() {
-			// Handle event
-			match event {
-				// Pinning event
-				NodeEvent::Pinning(event) => {
-					let maybe_pin = self.keys.dispatch(event)?;
+    async fn async_dispatch(&mut self, batch: Batch<NodeEvent>) -> Result<()> {
+        for (idx, event) in batch.into_iter().enumerate() {
+            // Handle event
+            match event {
+                // Pinning event
+                NodeEvent::Pinning(event) => {
+                    let maybe_pin = self.keys.dispatch(event)?;
 
-					if let Some(pin_event) = maybe_pin {
-						// Pinning dispatch
-						self.pinning.async_dispatch(pin_event).await.unwrap();
-					}
-				},
-				// Node registration event
-				NodeEvent::NodeRegistration(node_id) => {
-					self.keys.dispatch(node_id)?;
-				},
-				// Node removal event
-				NodeEvent::NodeRemoval(leave_event) => {
-					// (event, event_block_num, event_idx)
-					let leaved_event_at = (leave_event, self.block_num + 1, idx);
+                    if let Some(pin_event) = maybe_pin {
+                        // Pinning dispatch
+                        self.pinning.async_dispatch(pin_event).await.unwrap();
+                    }
+                }
+                // Node registration event
+                NodeEvent::NodeRegistration(node_id) => {
+                    self.keys.dispatch(node_id)?;
+                }
+                // Node removal event
+                NodeEvent::NodeRemoval(leave_event) => {
+                    // (event, event_block_num, event_idx)
+                    let leaved_event_at = (leave_event, self.block_num + 1, idx);
 
-					// Dispatch the leave event and get the CID that locates the row to be transferred
-					let res = self.keys.async_dispatch(leaved_event_at).await?;
+                    // Dispatch the leave event and get the CID that locates the row to be transferred
+                    let res = self.keys.async_dispatch(leaved_event_at).await?;
 
-					if let Some((cid, batch)) = res {
-						let mut transferred_row = self.pinning.async_dispatch((cid, batch)).await?;
+                    if let Some((cid, batch)) = res {
+                        let mut transferred_row = self.pinning.async_dispatch((cid, batch)).await?;
 
-						// Update the table with the row fetched from IPFS
-						self.keys.mutable_keytable().extend_last_row(&mut transferred_row)?;
-					}
-				},
-				// Block barrier event for checkpointing
-				NodeEvent::BlockBarrier(block_num) => {
-					// get the rows of the keytable to be flushed
-					let flushing_rows = self.keys.mutable_keytable().flush();
+                        // Update the table with the row fetched from IPFS
+                        self.keys
+                            .mutable_keytable()
+                            .extend_last_row(&mut transferred_row)?;
+                    }
+                }
+                // Block barrier event for checkpointing
+                NodeEvent::BlockBarrier(block_num) => {
+                    // get the rows of the keytable to be flushed
+                    let flushing_rows = self.keys.mutable_keytable().flush();
 
-					// commit the checkpoint
-					let checkpoint_event = CheckpointEvent::new(block_num, flushing_rows);
-					self.db.dispatch(checkpoint_event)?;
+                    // commit the checkpoint
+                    let checkpoint_event = CheckpointEvent::new(block_num, flushing_rows);
+                    self.db.dispatch(checkpoint_event)?;
 
-					// update the block number
-					self.block_num = block_num;
-				},
-			};
-		}
+                    // update the block number
+                    self.block_num = block_num;
+                }
+            };
+        }
 
-		Ok(())
-	}
+        Ok(())
+    }
 }
 
 pub mod db_dispatcher;

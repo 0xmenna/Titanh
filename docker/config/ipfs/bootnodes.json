@@ -1,0 +1,64 @@
+{
+    "bootnodes": [
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4001,
+            "peerId": "12D3KooWQcT3jMRaRSJcZMEZ6fh3NKVGBdoLw4v6JogN2nhNEN2o"
+        },
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4002,
+            "peerId": "12D3KooWErSAyfc93Xm6eAFZMxnPCGTvKhvuVhgcegjXK2Ec2suk"
+        },
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4003,
+            "peerId": "12D3KooWNUUwG2CJzGwrsesjtvtUsZR2zTZZwA2b8xnSf5JVpgxM"
+        },
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4004,
+            "peerId": "12D3KooWKLy4y3dVkB8NwWGKazWjgthn6PJgfQetKEua1JmUe9N5"
+        },
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4005,
+            "peerId": "12D3KooWDvthshy2FhnFNyaXiYZX6txok42Ad8ELPxgWGCZwgW6B"
+        },
+        {
+            "hostname": "titanh-ipfs-1",
+            "port": 4006,
+            "peerId": "12D3KooWQpk3izWGRuwv8Fjt12Rw4Lwg7terBpAsnQsHd4SNNV6K"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4001,
+            "peerId": "12D3KooWPNev59Be4g8z657F7R9vSN7Cj9ZkXPWghafJ6Zts3zzm"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4002,
+            "peerId": "12D3KooWPKkvZto5P3A3Ms7543BE8YHqp279ieeA6VEUyTT2vn8d"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4003,
+            "peerId": "12D3KooWLG2ZTMTqf65asDe69jRp2onL6dkKLMLcTNvwwuVcfWsf"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4004,
+            "peerId": "12D3KooWGdN9ziEMWx9jvjJ9ybA6Bpj1EmYegrtBP2GoyWE1fCdc"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4005,
+            "peerId": "12D3KooWNpAW4jnAX3mpesw4ufc4JrFevt1QUcGHK4XViosqPe13"
+        },
+        {
+            "hostname": "titanh-ipfs-2",
+            "port": 4006,
+            "peerId": "12D3KooWPATdeMfWLGdJB5qdZRSfDfDYgJfYUuS46PpKM4xXifhA"
+        }
+    ]
+}

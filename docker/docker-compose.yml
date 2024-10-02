@@ -47,46 +47,35 @@ services:
     tty: true
     entrypoint: ["/home/titanh-substrate/scripts/validator-entrypoint.sh"]
 
-  # Ipfs instances associated to titanh-pinning- 
+
+  # Ipfs instances associated to titanh-pinning-1 
   titanh-ipfs-1:
     image: titanh-ipfs
     container_name: titanh-ipfs-1
     networks:
       - titanh_network
     volumes:
-    - ./scripts/ipfs:/home/titanh-ipfs/config
-    environment:
-      - IPFS_REPLICAS=2
-    
-      - NODE_1_PRIVKEY=${IPFS_1_NODE_1_PRIVKEY}
-      - NODE_1_PEERID=${IPFS_1_NODE_1_PEERID}
-
-      - NODE_2_PRIVKEY=${IPFS_1_NODE_2_PRIVKEY}
-      - NODE_2_PEERID=${IPFS_1_NODE_2_PEERID}
+    - ./scripts/ipfs:/home/titanh-ipfs/scripts
+    - ./config/ipfs/bootnodes.json:/home/titanh-ipfs/config/bootnodes.json
+    - ./config/ipfs/ipfs-keys-1.json:/home/titanh-ipfs/config/ipfs-keys.json
     ports:
       - 5001:5001
       - 8080:8080
-    entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
+    entrypoint: ["/home/titanh-ipfs/config/run-nodes-2.sh"]
     
-
+  # Ipfs instances associated to titanh-pinning-2
   titanh-ipfs-2:
     image: titanh-ipfs
     container_name: titanh-ipfs-2
     networks:
       - titanh_network
     volumes:
-    - ./scripts/ipfs:/home/titanh-ipfs/config
-    environment:
-      - IPFS_REPLICAS=2
-
-      - NODE_1_PRIVKEY=${IPFS_2_NODE_1_PRIVKEY}
-      - NODE_1_PEERID=${IPFS_2_NODE_1_PEERID}
-
-      - NODE_2_PRIVKEY=${IPFS_2_NODE_2_PRIVKEY}
-      - NODE_2_PEERID=${IPFS_2_NODE_2_PEERID}
+    - ./scripts/ipfs:/home/titanh-ipfs/scripts
+    - ./config/ipfs/bootnodes.json:/home/titanh-ipfs/config/bootnodes.json
+    - ./config/ipfs/ipfs-keys-2.json:/home/titanh-ipfs/config/ipfs-keys.json
     depends_on:
       - titanh-ipfs-1
-    entrypoint: ["/home/titanh-ipfs/config/run-nodes.sh"]
+    entrypoint: ["/home/titanh-ipfs/config/run-nodes-2.sh"]
 
   
   # Just for testing

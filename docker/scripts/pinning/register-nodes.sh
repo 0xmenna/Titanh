@@ -28,36 +28,15 @@ for var in "${REQUIRED_VARS[@]}"; do
     fi
 done
 
-# Set the path for seed
-IPFS_SEEDS_PATH="$HOME/config/ipfs_seeds"
-
-# Set the path for ipfs peers config
-IPFS_PUBKEYS_PATH="$HOME/config/ipfs_pubkeys.json"
 
 # Define paths
 CLI_PATH="$HOME/cli/pinning-committee/target/release/pinning-committee"
-
-#SEEDS_FILE="$HOME/config/ipfs_seeds_$i"
-PINNING_NODE_PATH="$HOME/pinning-node/target/release/pinning_node"
 
 # Check if the CLI program exists
 if [[ ! -x "$CLI_PATH" ]]; then
     error_exit "CLI program not found or not executable at $CLI_PATH"
 fi
 
-# Check if the Pinning Node program exists
-if [[ ! -x "$PINNING_NODE_PATH" ]]; then
-    error_exit "Pinning Node program not found or not executable at $PINNING_NODE_PATH"
-fi
-
-# Check if the seeds file exists
-if [[ ! -f "$IPFS_SEEDS_PATH" ]]; then
-    error_exit "Seeds file not found at $IPFS_SEEDS_PATH"
-fi
-
-if [[ ! -f "$IPFS_PUBKEYS_PATH" ]]; then
-    error_exit "IPFS pubkeys path not found at $IPFS_PUBKEYS_PATH"
-fi
 
 # Wait to ensure the chain is up
 echo "Waiting for the chain to start..."
@@ -66,13 +45,12 @@ sleep 10
 # Loop through each instance
 for (( i=1; i<=PINNING_INSTANCES; i++ ))
 do
+    IPFS_SEEDS_PATH="$HOME/config/virtual-$i/ipfs_seeds"
+
     echo "=============================================="
-    echo "Setting up virtual node $i..."
+    echo "Sending registration transaction on chain for virtual node $i..."
     echo "=============================================="
     
-    
-    # Register the pinning node
-    echo "Sending registration transaction on chain for the virtual node $i..."
     "$CLI_PATH" register-pinning-node \
         --seed-phrase "$VALIDATOR_SEED" \
         --rpc "$CHAIN_RPC" \

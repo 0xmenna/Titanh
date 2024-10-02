@@ -7,10 +7,12 @@ use crate::{
 };
 use anyhow::{Ok, Result};
 use codec::{Decode, Encode};
+use futures::TryStreamExt;
 use ipfs_api_backend_hyper::{request::Add, IpfsApi, IpfsClient, TryFromUri};
 use sp_core::H256;
 use std::io::Cursor;
-use types::PutCapsuleOpts;
+use types::{GetCapsuleOpts, PutCapsuleOpts};
+use utils::convert_bounded_str;
 
 pub struct CapsulesConfig {
     ipfs: IpfsClient,
@@ -122,6 +124,58 @@ impl<'a> CapsulesApi<'a> {
         };
 
         Ok(tx_hash)
+    }
+
+    pub async fn get<Id: Encode, Value: Decode>(&self, id: Id) -> Result<Value> {
+        let opts = GetCapsuleOpts::default();
+        let value = self.get_with_options(id, opts).await?;
+
+        Ok(value)
+    }
+
+    pub async fn get_finalized<Id: Encode, Value: Decode>(&self, id: Id) -> Result<Value> {
+        let opts = GetCapsuleOpts {
+            from_finalized_state: true,
+        };
+
+        let value = self.get_with_options(id, opts).await?;
+
+        Ok(value)
+    }
+
+    pub async fn get_with_options<Id: Encode, Value: Decode>(
+        &self,
+        id: Id,
+        opts: GetCapsuleOpts,
+    ) -> Result<Value> {
+        // Ensure the configuration is set
+        let config = self.ensure_config()?;
+
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let capsule_query = titanh::storage().capsules().capsules(capsule_id);
+
+        let at = if opts.from_finalized_state {
+            Some(self.titanh.latest_finalized_block().await?)
+        } else {
+            None
+        }
+        .map(|block| block.hash);
+
+        let capsule = self.titanh.query(&capsule_query, at).await?;
+        let cid = convert_bounded_str(capsule.cid)?;
+
+        let response = config
+            .ipfs
+            .cat(&cid)
+            .map_ok(|chunk| chunk.to_vec())
+            .try_concat()
+            .await
+            .map_err(|_| anyhow::anyhow!("error reading full file"))?;
+
+        let value = Value::decode(&mut &response[..])?;
+
+        Ok(value)
     }
 }
 

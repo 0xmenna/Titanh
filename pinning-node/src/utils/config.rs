@@ -1,7 +1,6 @@
-use api::{common_types::KeyPair, pinning_committee_types::NodeId};
-use codec::Encode;
+use api::pinning_committee_types::NodeId;
 use serde::Deserialize;
-use sp_core::{Blake2Hasher, Hasher, Pair};
+use sp_core::{Blake2Hasher, Hasher};
 use std::fs;
 
 #[derive(Deserialize)]
@@ -28,8 +27,6 @@ pub struct IpfsPeer {
 
 #[derive(Debug)]
 pub struct Config {
-    /// The pinning node index within the validators pinning nodes
-    pub node_idx: u32,
     /// The seed phrase of the validator
     pub seed_phrase: String,
     /// The endpoint of the chain rpc node
@@ -44,13 +41,11 @@ impl Config {
     // Read config from a JSON file
     pub fn new(
         seed_phrase: String,
-        node_idx: u32,
         chain_node_endpoint: String,
         failure_retry: u8,
         ipfs_peers: Vec<IpfsPeer>,
     ) -> Self {
         Self {
-            node_idx,
             seed_phrase,
             chain_node_endpoint,
             ipfs_peers,
@@ -59,15 +54,8 @@ impl Config {
     }
 
     pub fn node_id(&self) -> NodeId {
-        // node_id = hash(validator_id || node_id || ipfs_peer1 || ipfs_peer2 || ...)
+        // node_id = hash(ipfs_peer1 || ipfs_peer2 || ...)
         let mut ids = Vec::new();
-
-        let validator_id = KeyPair::from_string(&self.seed_phrase, None)
-            .expect("Invalid seed phrase")
-            .public();
-        ids.extend_from_slice(&validator_id.encode());
-
-        ids.extend_from_slice(&self.node_idx.encode());
 
         for peer in &self.ipfs_peers {
             let pubkey = hex::decode(&peer.peer_pubkey).expect("Invalid peer pubkey");
