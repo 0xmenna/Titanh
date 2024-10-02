@@ -29,6 +29,8 @@ pub struct IpfsPeer {
 pub struct Config {
     /// The seed phrase of the validator
     pub seed_phrase: String,
+    /// The virtual node instance within all the nodes running in the same machine
+    pub idx: u32,
     /// The endpoint of the chain rpc node
     pub chain_node_endpoint: String,
     /// The list of IPFS peers
@@ -41,12 +43,14 @@ impl Config {
     // Read config from a JSON file
     pub fn new(
         seed_phrase: String,
+        idx: u32,
         chain_node_endpoint: String,
         failure_retry: u8,
         ipfs_peers: Vec<IpfsPeer>,
     ) -> Self {
         Self {
             seed_phrase,
+            idx,
             chain_node_endpoint,
             ipfs_peers,
             failure_retry,

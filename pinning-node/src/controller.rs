@@ -28,7 +28,7 @@ impl PinningNodeController {
         let replication_factor = ring.replication();
 
         // Node checkpointing db
-        let db = DbCheckpoint::from_config(replication_factor, config.node_id());
+        let db = DbCheckpoint::from_config(replication_factor, config.node_id(), config.idx);
         let checkpoint = db.get_checkpoint().unwrap();
         log::info!("Checkpoint is at block number: {}", checkpoint.height());
         // Block number until which the node has processed events.

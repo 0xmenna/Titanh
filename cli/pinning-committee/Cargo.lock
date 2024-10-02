@@ -169,6 +169,7 @@ name = "api"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
  "hex",
  "ipfs-api-backend-hyper",
  "parity-scale-codec",

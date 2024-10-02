@@ -62,6 +62,61 @@ initialize_node() {
   add_bootnodes_from_json "$HOME/config/bootnodes.json" "$NODE_DIR"
 }
 
+
+# Function to add bootnodes from a JSON file
+add_bootnodes_from_json() {
+  local BOOTNODES_JSON_FILE="$1"
+  local NODE_DIR="$2"
+
+  # Check if the JSON file exists
+  if [ ! -f "$BOOTNODES_JSON_FILE" ]; then
+    echo "Error: Bootnodes JSON file not found at $BOOTNODES_JSON_FILE."
+    exit 1
+  fi
+
+  echo "Parsing bootnodes from $BOOTNODES_JSON_FILE..."
+
+  # Initialize an array to hold valid multiaddresses
+  local MULTIADDRS=()
+
+  # Iterate over each bootnode entry in the JSON
+  while IFS= read -r BOOTNODE; do
+    # Extract hostname, port, and peerId using jq
+    local HOSTNAME PORT PEERID
+    HOSTNAME=$(echo "$BOOTNODE" | jq -r '.hostname')
+    PORT=$(echo "$BOOTNODE" | jq -r '.port')
+    PEERID=$(echo "$BOOTNODE" | jq -r '.peerId')
+
+    # Resolve the hostname to an IP address
+    local RESOLVED_IP
+    RESOLVED_IP=$(getent hosts "$HOSTNAME" | awk '{ print $1 }')
+
+    if [ -z "$RESOLVED_IP" ]; then
+      echo "Warning: Could not resolve IP for hostname '$HOSTNAME'. Skipping this bootnode."
+      continue
+    fi
+
+    # Construct the multiaddress
+    local MULTIADDR="/ip4/$RESOLVED_IP/udp/$PORT/quic-v1/p2p/$PEERID"
+    # local MULTIADDR="/ip4/$RESOLVED_IP/tcp/$PORT/p2p/$PEERID"
+    echo "Resolved Bootnode: $MULTIADDR"
+
+    # Add to the array of multiaddresses
+    MULTIADDRS+=("$MULTIADDR")
+  done < <(jq -c '.bootnodes[]' "$BOOTNODES_JSON_FILE")
+
+  # Check if there are valid bootnodes to add
+  if [ ${#MULTIADDRS[@]} -eq 0 ]; then
+    echo "No valid bootnodes to add from the JSON file."
+    return
+  fi
+
+  # Add all bootnodes to the IPFS bootstrap list in a single command
+  echo "Adding bootnodes to IPFS bootstrap list..."
+  IPFS_PATH="$NODE_DIR" ipfs bootstrap add "${MULTIADDRS[@]}"
+  echo "Bootnodes added successfully."
+}
+
 # Function to start the IPFS daemon
 start_daemon() {
   local NODE_DIR=$1
@@ -83,7 +138,7 @@ for ((i=1; i<=$IPFS_REPLICAS; i++)); do
   NODE_NAME="node$i"
 
   CONFIG_FILE=$IPFS_CONFIG_PATH
-  NODE_IDX = $i - 1
+  NODE_IDX=$((i - 1))
   PRIVKEY=$(get_node_config "$CONFIG_FILE" $NODE_IDX "privateKey")
   PEERID=$(get_node_config "$CONFIG_FILE" $NODE_IDX "peerId")
 
@@ -95,3 +150,19 @@ for ((i=1; i<=$IPFS_REPLICAS; i++)); do
 done
 
 echo "All $IPFS_REPLICAS IPFS node(s) are up and running."
+
+echo "-------------------------------------------"
+for ((i=1; i<=$IPFS_REPLICAS; i++)); do
+  API_PORT=$((API_BASE + i - 1))
+  GATEWAY_PORT=$((GATEWAY_BASE + i - 1))
+  NODE_IDX=$((i - 1))
+  echo "Node $i:"
+  echo "  API Endpoint: http://127.0.0.1:$API_PORT"
+  echo "  Gateway Endpoint: http://127.0.0.1:$GATEWAY_PORT"
+  echo "  Log File: $HOME/node${i}_daemon.log"
+  echo "  PeerId: $(get_node_config "$CONFIG_FILE" $NODE_IDX "peerId")"
+  echo "-------------------------------------------"
+done
+
+# Wait for all background processes to finish
+wait

@@ -13,6 +13,11 @@ if [ -z "$NODE_NAME" ]; then
   exit 1
 fi
 
+if [ -z "$BLOCK_PRUNING" ]; then
+  echo "Error: BLOCK_PRUNING environment variable is not set."
+  exit 1
+fi
+
 NODE_PATH="$HOME/target/release/titanh-node"
 
 # Function to fetch BOOTNODE_ID using curl
@@ -55,6 +60,7 @@ CMD=("$NODE_PATH"
   --rpc-external
   --validator
   --rpc-methods "Unsafe"
+  --pruning "$BLOCK_PRUNING"
   --name "$NODE_NAME")
 
 # If BOOTNODE_HOST is set, fetch BOOTNODE_ID and add --bootnodes

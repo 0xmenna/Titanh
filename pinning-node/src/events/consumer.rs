@@ -37,7 +37,7 @@ impl NodeConsumer {
         let mut consuming_batch = Batch::default();
         while let Some(event) = events_pool.read_handle().receive_events().await {
             consuming_batch.insert(event.clone());
-            log::info!("Consuming event {:?} added to a batch", event);
+            log::info!("Consuming event {:?}, added to current batch", event);
 
             if let Some(block_num) = event.block_barrier_event() {
                 log::info!("Consuming batch identified by block number: {}", block_num);

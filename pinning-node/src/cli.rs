@@ -16,13 +16,14 @@ impl Cli {
         match cli.command {
             Commands::Start {
                 seed,
+                idx,
                 rpc,
                 retries,
                 ipfs_peers_config,
             } => {
                 let peers_config = PeersConfig::from_json(&ipfs_peers_config);
 
-                Config::new(seed, rpc, retries, peers_config.ipfs_peers)
+                Config::new(seed, idx, rpc, retries, peers_config.ipfs_peers)
             }
         }
     }
@@ -35,6 +36,9 @@ enum Commands {
         #[arg(short, long)]
         /// The seed phrase of the validator associated to the pinning node
         seed: String,
+        #[arg(short, long)]
+        /// The virtual node instance within all the nodes running in the same machine
+        idx: u32,
         #[arg(short, long)]
         /// The endpoint of the chain rpc node
         rpc: String,

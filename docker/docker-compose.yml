@@ -23,6 +23,7 @@ services:
       - CHAIN_SPEC=/home/titanh-substrate/specs/titanhSpecRaw.json
       - NODE_NAME=titanh-substrate-1
       - SEED_PHRASE=${SEED_SUBSTRATE_NODE_1}
+      - BLOCK_PRUNING=3600 # Validator will discard blocks for a depth of 3600 blocks
     tty: true
     ports:
       - 9944:9944
@@ -42,6 +43,7 @@ services:
       - NODE_NAME=substrate-titanh-node-2
       - SEED_PHRASE=${SEED_SUBSTRATE_NODE_2}
       - BOOTNODE_HOST=titanh-substrate-1
+      - BLOCK_PRUNING=3600
     depends_on:
       - titanh-substrate-1
     tty: true
@@ -61,7 +63,7 @@ services:
     ports:
       - 5001:5001
       - 8080:8080
-    entrypoint: ["/home/titanh-ipfs/config/run-nodes-2.sh"]
+    entrypoint: ["/home/titanh-ipfs/scripts/run-nodes-2.sh"]
     
   # Ipfs instances associated to titanh-pinning-2
   titanh-ipfs-2:
@@ -75,7 +77,7 @@ services:
     - ./config/ipfs/ipfs-keys-2.json:/home/titanh-ipfs/config/ipfs-keys.json
     depends_on:
       - titanh-ipfs-1
-    entrypoint: ["/home/titanh-ipfs/config/run-nodes-2.sh"]
+    entrypoint: ["/home/titanh-ipfs/scripts/run-nodes-2.sh"]
 
   
   # Just for testing

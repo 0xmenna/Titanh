@@ -35,21 +35,21 @@ pub struct DbCheckpoint {
 }
 
 impl DbCheckpoint {
-    pub fn from_config(rep_factor: u32, node_id: NodeId) -> Self {
+    pub fn from_config(rep_factor: u32, node_id: NodeId, virtual_node_idx: u32) -> Self {
         // Open database
-        let db = Self::open_db_from_node(node_id);
+        let db = Self::open_db_from_node(virtual_node_idx, node_id);
         Self { db, rep_factor }
     }
 
-    fn open_db_from_node(node_id: NodeId) -> Db {
+    fn open_db_from_node(idx: u32, node_id: NodeId) -> Db {
         let node_id = hex::encode(&node_id.encode()[..=8]);
-        let db_name = format!("db_{}", node_id);
+        let db_name = format!("virtual_{}/db_{}", idx, node_id);
         sled::open(db_name).unwrap()
     }
 
     // This is unbounded to the struct instance because we still don't know the `rep_factor`, since it's a value fetched remotely, based on the block number, this is why we read this first.
-    pub fn get_blocknumber_from_db_node(node_id: NodeId) -> Option<BlockNumber> {
-        let db = Self::open_db_from_node(node_id);
+    pub fn get_blocknumber_from_db_node(idx: u32, node_id: NodeId) -> Option<BlockNumber> {
+        let db = Self::open_db_from_node(idx, node_id);
         let block_num = Self::read_blocknumber(&db).expect("Failed to retrieve block");
 
         block_num
