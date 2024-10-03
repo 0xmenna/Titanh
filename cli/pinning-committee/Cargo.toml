@@ -12,6 +12,16 @@ pem = "3.0.4"
 hex = "0.4.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+anyhow = "1.0.86"
 
 # titanh api
 api = { path = "../../api"}
+
+
+# pinning lib to access checkpointing db operations
+pinning = { package = "pinning_node", path = "../../pinning-node" }
+
+
+
+# ipfs
+ipfs-api-backend-hyper = "0.6"

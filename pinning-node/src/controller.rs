@@ -1,10 +1,11 @@
 use crate::{
+    cli::Cli,
     db::checkpointing::DbCheckpoint,
     events::{consumer::NodeConsumer, dispatcher::NodeEventDispatcher, producer::NodeProducer},
     ipfs::client_builder::IpfsClientBuilder,
     substrate::client_builder::SubstrateClientBuilder,
     types::events_pool::NodeEventsPool,
-    utils::{config::Config, traits::ClientBuilder},
+    utils::traits::ClientBuilder,
 };
 
 pub struct PinningNodeController {
@@ -16,14 +17,16 @@ pub struct PinningNodeController {
 }
 
 impl PinningNodeController {
-    pub async fn bootstrap(config: Config) -> Self {
-        env_logger::init();
+    pub async fn bootstrap() -> Self {
+        let config = Cli::parse_config();
         // Build the substrate client to read the blockchain related data
         let sub_client = SubstrateClientBuilder::from_config(&config).build().await;
         log::info!(
-            "Substrate client initialized at block number: {}",
-            sub_client.height()
+            "Substrate client initialized at block number: {}, with ID: {}",
+            sub_client.height(),
+            hex::encode(sub_client.node_id())
         );
+
         let ring = sub_client.ring().await;
         let replication_factor = ring.replication();
 

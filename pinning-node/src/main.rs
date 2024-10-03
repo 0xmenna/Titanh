@@ -1,19 +1,12 @@
-use cli::Cli;
-use controller::PinningNodeController;
-
-mod cli;
-mod controller;
-mod db;
-mod events;
-mod ipfs;
-mod substrate;
-mod types;
-mod utils;
+use pinning::PinningNodeController;
 
 #[tokio::main]
 async fn main() {
-    let config = Cli::parse_config();
+    // Initialize the logger
+    env_logger::init();
 
-    let node = PinningNodeController::bootstrap(config).await;
+    // Bootstrap the node
+    let node = PinningNodeController::bootstrap().await;
+    // Execute the node
     node.execute().await
 }

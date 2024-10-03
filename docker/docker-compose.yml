@@ -96,6 +96,8 @@ services:
       - PINNING_INSTANCES=3
       - VALIDATOR_SEED=${SEED_SUBSTRATE_NODE_1}
       - CHAIN_RPC=ws://titanh-substrate-1:9944
+      - IPFS_RPC=http://titanh-ipfs-1:5001
+      - REPLICATION_FACTOR=2
       - FAILURE_RETRY=2
     tty: true
     depends_on:

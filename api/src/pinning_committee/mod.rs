@@ -10,7 +10,7 @@ use crate::{
     TitanhApi,
 };
 use anyhow::Result;
-use codec::{Decode, Encode};
+use codec::Decode;
 use crypto::IpfsPair;
 use sp_core::{Blake2Hasher, Hasher, H256};
 use types::PinningRing;
@@ -125,12 +125,12 @@ impl PinningCommitteeApi<'_> {
         Ok(tx_hash.extrinsic_hash())
     }
 
-    fn compute_pinning_node_id(&self) -> Result<H256> {
+    pub fn compute_pinning_node_id(&self) -> Result<H256> {
         if let Some(ipfs_peers) = &self.ipfs_peers {
             let mut ids = Vec::new();
 
             for ipfs_peer in ipfs_peers {
-                ids.extend_from_slice(&ipfs_peer.public().encode());
+                ids.extend_from_slice(&ipfs_peer.public());
             }
 
             Ok(Blake2Hasher::hash(&ids[..]))

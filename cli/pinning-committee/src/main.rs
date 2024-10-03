@@ -44,6 +44,27 @@ enum Commands {
         #[arg(short, long)]
         seeds_file: String,
     },
+    /// Leave the pinning committee
+    LeavePinningCommittee {
+        /// The seed phrase of the validator account
+        #[arg(short, long)]
+        seed_phrase: String,
+        /// The path to the file containing hex-encoded IPFS seeds, one per line
+        #[arg(short, long)]
+        seeds_file: String,
+        /// The virtual node instance within all the nodes running in the same machine
+        #[arg(short, long)]
+        idx: u32,
+        /// The chain rpc endpoint
+        #[arg(short, long)]
+        chain_rpc: String,
+        /// The ipfs rpc endpoint
+        #[arg(short, long)]
+        ipfs_rpc: String,
+        /// The keytable rows to upload to ipfs
+        #[arg(short, long)]
+        table_rows: u32,
+    },
 }
 
 /// Reads a single file containing hex-encoded seeds, one per line.
@@ -130,7 +151,42 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 tx_hash
             );
         }
+        Commands::LeavePinningCommittee {
+            seed_phrase,
+            seeds_file,
+            idx,
+            chain_rpc,
+            ipfs_rpc,
+            table_rows,
+        } => {
+            let seeds_path = PathBuf::from(seeds_file);
+            let ipfs_seeds = get_seeds_from_hex_file(seeds_path)?;
+
+            let api = TitanhApiBuilder::rpc(&chain_rpc)
+                .seed(&seed_phrase)
+                .build()
+                .await;
+            let committee_api = api.pinning_committee().ipfs_seeds(ipfs_seeds)?;
+
+            let node_id = committee_api.compute_pinning_node_id()?;
+            let node_checkpoint =
+                node_leave::read_node_checkpoint_from_db(table_rows, node_id, idx)?;
+
+            let block_num = node_checkpoint.height();
+            let keytable = node_checkpoint.keytable();
+
+            let cids = node_leave::upload_keytable_to_ipfs(&ipfs_rpc, keytable).await?;
+
+            let tx_hash = committee_api.leave_committee(cids, block_num).await?;
+
+            println!(
+                "Leaving pinning committee transaction was successful. Transaction hash: {:?}",
+                tx_hash
+            );
+        }
     }
 
     Ok(())
 }
+
+mod node_leave;
