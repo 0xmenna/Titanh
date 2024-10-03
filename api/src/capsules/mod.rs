@@ -1,7 +1,13 @@
 use crate::{
+    common::FollowersStatus,
+    common_types::{ConsistencyLevel, Events, User},
     titanh::{
-        self, capsules::calls::types::upload_capsule::App,
-        runtime_types::pallet_capsules::capsule::types::CapsuleUploadData,
+        self,
+        capsules::calls::types::upload_capsule::App,
+        runtime_types::{
+            pallet_capsules::{capsule::types::CapsuleUploadData, pallet::Call},
+            titanh_runtime::RuntimeCall,
+        },
     },
     TitanhApi,
 };
@@ -11,7 +17,7 @@ use futures::TryStreamExt;
 use ipfs_api_backend_hyper::{request::Add, IpfsApi, IpfsClient, TryFromUri};
 use sp_core::H256;
 use std::io::Cursor;
-use types::{GetCapsuleOpts, PutCapsuleOpts};
+use types::{GetCapsuleOpts, PutCapsuleOpts, UpdateCapsuleOpts};
 use utils::convert_bounded_str;
 
 pub struct CapsulesConfig {
@@ -43,12 +49,27 @@ impl<'a> CapsulesApi<'a> {
         })
     }
 
-    /// Put a new object identified by `id` to IPFS and add the metadata to the chain with default options. The transaction is not waited for finalization
+    /// Put a new object identified by `id` to IPFS and add the metadata to the chain with default options. The transaction is waited for block inclusion.
     pub async fn put<Id, Value>(&self, id: Id, data: Value) -> Result<H256>
     where
         Id: Encode,
         Value: Encode + Decode,
     {
+        let tx_hash = self
+            .put_with_options(id, data, PutCapsuleOpts::default())
+            .await?;
+        Ok(tx_hash)
+    }
+
+    /// Put a new object identified by `id` to IPFS and add the metadata to the chain. The transaction is async by means of not waiting for block inclusion, but just an inclusion in the transaction pool.
+    pub async fn put_async<Id, Value>(&self, id: Id, data: Value) -> Result<H256>
+    where
+        Id: Encode,
+        Value: Encode + Decode,
+    {
+        let mut opts = PutCapsuleOpts::default();
+        opts.level = ConsistencyLevel::Low;
+
         let tx_hash = self
             .put_with_options(id, data, PutCapsuleOpts::default())
             .await?;
@@ -62,7 +83,8 @@ impl<'a> CapsulesApi<'a> {
         Value: Encode + Decode,
     {
         let mut opts = PutCapsuleOpts::default();
-        opts.wait_finalization = true;
+        opts.level = ConsistencyLevel::High;
+
         let tx_hash = self.put_with_options(id, data, opts).await?;
 
         Ok(tx_hash)
@@ -82,20 +104,8 @@ impl<'a> CapsulesApi<'a> {
         // Ensure the configuration is set
         let config = self.ensure_config()?;
 
-        // Encode the data
-        let data = Cursor::new(data.encode());
-        // Do not pin the data
-        let mut add_opts = Add::default();
-        add_opts.pin = Some(false);
-        // Add the data to IPFS
-        let ipfs_res = config.ipfs.add_with_options(data, add_opts).await?;
-
-        let cid = ipfs_res.hash.as_bytes().to_vec();
-        let size: u128 = ipfs_res
-            .size
-            .parse()
-            .expect("Content size is expected to be a valid number");
-        let (retention_blocks, followers_status, wait_finalized) =
+        let (cid, size) = self.upload_to_ipfs(data).await?;
+        let (retention_blocks, followers_status, consistency_level) =
             options.unwrap_fields_or_default();
         let ending_retention_block =
             self.titanh.latest_finalized_block().await?.number + retention_blocks;
@@ -113,19 +123,15 @@ impl<'a> CapsulesApi<'a> {
             .capsules()
             .upload_capsule(config.app, None, capsule);
 
-        let tx_hash = if wait_finalized {
-            let events = self
-                .titanh
-                .sign_and_submit_wait_finalized(&upload_tx)
-                .await?;
-            events.extrinsic_hash()
-        } else {
-            self.titanh.sign_and_submit(&upload_tx).await?
-        };
+        let tx_hash = self
+            .titanh
+            .sign_and_submit_tx_with_level(&upload_tx, consistency_level)
+            .await?;
 
         Ok(tx_hash)
     }
 
+    /// Reads a value from the latest block, not yet finalized
     pub async fn get<Id: Encode, Value: Decode>(&self, id: Id) -> Result<Value> {
         let opts = GetCapsuleOpts::default();
         let value = self.get_with_options(id, opts).await?;
@@ -133,6 +139,7 @@ impl<'a> CapsulesApi<'a> {
         Ok(value)
     }
 
+    /// Reads a value from a finalized block
     pub async fn get_finalized<Id: Encode, Value: Decode>(&self, id: Id) -> Result<Value> {
         let opts = GetCapsuleOpts {
             from_finalized_state: true,
@@ -152,10 +159,224 @@ impl<'a> CapsulesApi<'a> {
         let config = self.ensure_config()?;
 
         let capsule_id = self.compute_capsule_id(id, config.app);
+        let value = self
+            .read_capsule(capsule_id, opts.from_finalized_state)
+            .await?;
 
+        Ok(value)
+    }
+
+    /// Updates the content of a capsule. Waits for block inclusion
+    pub async fn update<Id: Encode, Value: Encode>(&self, id: Id, data: Value) -> Result<H256> {
+        let tx_hash = self
+            .update_with_options(id, data, UpdateCapsuleOpts::default())
+            .await?;
+        Ok(tx_hash)
+    }
+
+    /// Updates the content of a capsule. Does not wait for block inclusion
+    pub async fn update_async<Id: Encode, Value: Encode>(
+        &self,
+        id: Id,
+        data: Value,
+    ) -> Result<H256> {
+        let mut opts = UpdateCapsuleOpts::default();
+        opts.level = ConsistencyLevel::Low;
+
+        let tx_hash = self.update_with_options(id, data, opts).await?;
+        Ok(tx_hash)
+    }
+
+    /// Updates the content of a capsule. Waits for block finalization
+    pub async fn update_wait_finalized<Id: Encode, Value: Encode>(
+        &self,
+        id: Id,
+        data: Value,
+    ) -> Result<H256> {
+        let mut opts = UpdateCapsuleOpts::default();
+        opts.level = ConsistencyLevel::High;
+
+        let tx_hash = self.update_with_options(id, data, opts).await?;
+        Ok(tx_hash)
+    }
+
+    pub async fn update_with_options<Id: Encode, Value: Encode>(
+        &self,
+        id: Id,
+        data: Value,
+        opts: UpdateCapsuleOpts,
+    ) -> Result<H256> {
+        let config = self.ensure_config()?;
+
+        let capsule_id = self.compute_capsule_id(id, config.app);
+        let (cid, size) = self.upload_to_ipfs(data).await?;
+
+        let update_tx = titanh::tx()
+            .capsules()
+            .update_capsule_content(capsule_id, cid, size);
+
+        let tx_hash = self
+            .titanh
+            .sign_and_submit_tx_with_level(&update_tx, opts.level)
+            .await?;
+
+        Ok(tx_hash)
+    }
+
+    /// Shares the ownership of a capsule with another user
+    pub async fn share_ownership<Id: Encode>(&self, id: Id, who: User) -> Result<Events> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let tx_share = titanh::tx()
+            .capsules()
+            .share_capsule_ownership(capsule_id, who.account());
+
+        let events = self.titanh.sign_and_submit_wait_in_block(&tx_share).await?;
+        Ok(events)
+    }
+
+    /// Approves the ownership request of a capsule
+    pub async fn approve_ownership<Id: Encode>(&self, id: Id) -> Result<Events> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let tx_share = titanh::tx()
+            .capsules()
+            .approve_capsule_ownership(capsule_id);
+
+        let events = self.titanh.sign_and_submit_wait_in_block(&tx_share).await?;
+        Ok(events)
+    }
+
+    /// Set the followers status of a capsule
+    pub async fn set_followers_status<Id: Encode>(
+        &self,
+        id: Id,
+        status: FollowersStatus,
+    ) -> Result<Events> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let tx_followers = titanh::tx()
+            .capsules()
+            .set_capsule_followers_status(capsule_id, status);
+
+        let events = self
+            .titanh
+            .sign_and_submit_wait_in_block(&tx_followers)
+            .await?;
+        Ok(events)
+    }
+
+    /// Follow a capsule
+    pub async fn follow<Id: Encode>(&self, id: Id) -> Result<Events> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let tx_follow = titanh::tx().capsules().follow_capsule(capsule_id);
+
+        let events = self
+            .titanh
+            .sign_and_submit_wait_in_block(&tx_follow)
+            .await?;
+        Ok(events)
+    }
+
+    /// Add a priviledged follower
+    pub async fn add_priviledged_follower<Id: Encode>(
+        &self,
+        id: Id,
+        follower: User,
+    ) -> Result<Events> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let tx_add = titanh::tx()
+            .capsules()
+            .add_priviledged_follower(capsule_id, follower.account());
+
+        let events = self.titanh.sign_and_submit_wait_in_block(&tx_add).await?;
+        Ok(events)
+    }
+
+    /// Approve a priviledged follower request
+    pub async fn approve_priviledged<Id: Encode>(&self, id: Id) -> Result<Events> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let tx_approve = titanh::tx()
+            .capsules()
+            .approve_privileged_follow(capsule_id);
+
+        let events = self
+            .titanh
+            .sign_and_submit_wait_in_block(&tx_approve)
+            .await?;
+        Ok(events)
+    }
+
+    pub async fn upload_capsule_to_ifps<Id, Data>(&self, id: Id, data: Data) -> Result<RuntimeCall>
+    where
+        Id: Encode,
+        Data: Encode,
+    {
+        let config = self.ensure_config()?;
+
+        let (cid, size) = self.upload_to_ipfs(data).await?;
+        let (retention_blocks, followers_status, _) =
+            PutCapsuleOpts::default().unwrap_fields_or_default();
+
+        let ending_retention_block =
+            self.titanh.latest_finalized_block().await?.number + retention_blocks;
+
+        // Build the capsule
+        let capsule = CapsuleUploadData {
+            cid,
+            size,
+            ending_retention_block,
+            followers_status,
+            encoded_metadata: id.encode(),
+        };
+
+        let call = RuntimeCall::Capsules(Call::upload_capsule {
+            app: config.app,
+            other_owner: None,
+            capsule: capsule,
+        });
+
+        Ok(call)
+    }
+
+    async fn upload_to_ipfs<Data: Encode>(&self, data: Data) -> Result<(Vec<u8>, u128)> {
+        let config = self.ensure_config()?;
+
+        let data = Cursor::new(data.encode());
+
+        // Do not pin the data
+        let mut add_opts = Add::default();
+        add_opts.pin = Some(false);
+        // Add the data to IPFS
+        let ipfs_res = config.ipfs.add_with_options(data, add_opts).await?;
+
+        let cid = ipfs_res.hash.as_bytes().to_vec();
+        let size: u128 = ipfs_res
+            .size
+            .parse()
+            .expect("Content size is expected to be a valid number");
+
+        Ok((cid, size))
+    }
+
+    pub async fn read_capsule<Value: Decode>(
+        &self,
+        capsule_id: H256,
+        from_finalized_state: bool,
+    ) -> Result<Value> {
+        let config = self.ensure_config()?;
         let capsule_query = titanh::storage().capsules().capsules(capsule_id);
 
-        let at = if opts.from_finalized_state {
+        let at = if from_finalized_state {
             Some(self.titanh.latest_finalized_block().await?)
         } else {
             None

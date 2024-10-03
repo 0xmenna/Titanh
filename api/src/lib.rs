@@ -6,11 +6,13 @@ use common::{
         runtime_types::{frame_system::EventRecord, titanh_runtime::RuntimeEvent},
         utility::calls::types::batch_all::Calls as RuntimeCalls,
     },
-    types::{BlockHash, BlockInfo, BlockNumber, Rpc, Signer, SubstrateApi},
+    types::{
+        BlockHash, BlockInfo, BlockNumber, ConsistencyLevel, Events, Rpc, Signer, SubstrateApi,
+    },
 };
 use pinning_committee::PinningCommitteeApi;
 use sp_core::H256;
-use subxt::{blocks::ExtrinsicEvents, storage::Address, tx::Payload, utils::Yes, SubstrateConfig};
+use subxt::{storage::Address, tx::Payload, utils::Yes};
 
 mod app_registrar;
 mod builder;
@@ -42,6 +44,21 @@ impl TitanhApi {
             rpc,
             signer,
         }
+    }
+
+    /// Returns the app registrar api
+    pub fn app_registrar(&self) -> AppRegistrarApi<'_> {
+        AppRegistrarApi::from(self)
+    }
+
+    /// Returns the capsules api
+    pub fn capsules(&self) -> CapsulesApi<'_> {
+        CapsulesApi::from(self)
+    }
+
+    /// Returns the pinning committee api
+    pub fn pinning_committee(&self) -> PinningCommitteeApi<'_> {
+        PinningCommitteeApi::from(self)
     }
 
     /// Queries the chain's storage
@@ -127,11 +144,28 @@ impl TitanhApi {
         Ok(tx_hash)
     }
 
+    /// Signs and submits a transaction. It waits for the transaction to be included in a block
+    pub async fn sign_and_submit_wait_in_block<Call: Payload>(&self, tx: &Call) -> Result<Events> {
+        let signer = self.ensure_signer()?;
+        let mut tx_progress = self
+            .substrate_api
+            .tx()
+            .sign_and_submit_then_watch_default(tx, signer)
+            .await?;
+
+        while let Some(block_status) = tx_progress.next().await {
+            let status = block_status?;
+            if let Some(in_block) = status.as_in_block() {
+                let events = in_block.wait_for_success().await?;
+                return Ok(events);
+            }
+        }
+
+        Err(anyhow::anyhow!("Transaction failed"))
+    }
+
     /// Signs and submits a transaction. It waits until the transaction is finalized.
-    pub async fn sign_and_submit_wait_finalized<Call: Payload>(
-        &self,
-        tx: &Call,
-    ) -> Result<ExtrinsicEvents<SubstrateConfig>> {
+    pub async fn sign_and_submit_wait_finalized<Call: Payload>(&self, tx: &Call) -> Result<Events> {
         let signer = self.ensure_signer()?;
 
         // Submit the extrinisc, and wait for it to be successful and in a finalized block.
@@ -147,36 +181,49 @@ impl TitanhApi {
         Ok(events)
     }
 
-    /// Signs and submits a batch of transactions (all or nothing). It waits until the transaction is finalized.
-    pub async fn sing_and_submit_batch(
+    pub async fn sign_and_submit_tx_with_level<Call: Payload>(
         &self,
-        calls: RuntimeCalls,
-        wait_finalized: bool,
+        tx: &Call,
+        level: ConsistencyLevel,
     ) -> Result<H256> {
-        let batch_tx = titanh::tx().utility().batch_all(calls);
-
-        let tx_hash = if wait_finalized {
-            let events = self.sign_and_submit_wait_finalized(&batch_tx).await?;
-            events.extrinsic_hash()
-        } else {
-            self.sign_and_submit(&batch_tx).await?
+        let tx_hash = match level {
+            // Just include the transaction in the transaction pool
+            ConsistencyLevel::Low => self.sign_and_submit(tx).await?,
+            // Wait for block inclusion
+            ConsistencyLevel::Medium => {
+                let events = self.sign_and_submit_wait_in_block(tx).await?;
+                events.extrinsic_hash()
+            }
+            // Wait for block finalization
+            ConsistencyLevel::High => {
+                let events = self.sign_and_submit_wait_finalized(tx).await?;
+                events.extrinsic_hash()
+            }
         };
 
         Ok(tx_hash)
     }
 
-    /// Returns the app registrar api
-    pub fn app_registrar(&self) -> AppRegistrarApi<'_> {
-        AppRegistrarApi::from(self)
-    }
+    /// Signs and submits a batch of transactions (all or nothing). It waits until the transaction is finalized.
+    pub async fn sing_and_submit_batch(
+        &self,
+        calls: RuntimeCalls,
+        level: ConsistencyLevel,
+    ) -> Result<H256> {
+        let batch_tx = titanh::tx().utility().batch_all(calls);
 
-    /// Returns the capsules api
-    pub fn capsules(&self) -> CapsulesApi<'_> {
-        CapsulesApi::from(self)
-    }
+        let tx_hash = match level {
+            ConsistencyLevel::Low => self.sign_and_submit(&batch_tx).await?,
+            ConsistencyLevel::Medium => self
+                .sign_and_submit_wait_in_block(&batch_tx)
+                .await?
+                .extrinsic_hash(),
+            ConsistencyLevel::High => self
+                .sign_and_submit_wait_finalized(&batch_tx)
+                .await?
+                .extrinsic_hash(),
+        };
 
-    /// Returns the pinning committee api
-    pub fn pinning_committee(&self) -> PinningCommitteeApi<'_> {
-        PinningCommitteeApi::from(self)
+        Ok(tx_hash)
     }
 }

@@ -1,15 +1,18 @@
 use crate::{
-    common_types::BlockHash,
+    common_types::{BlockHash, BlockNumber, ConsistencyLevel},
     titanh::{
-        self, runtime_types::primitives::ed25519::app_ed25519,
+        self,
+        runtime_types::{
+            pallet_pinning_committee::types::KeyTableAt, primitives::ed25519::app_ed25519,
+        },
         utility::calls::types::batch_all::Calls as RuntimeCalls,
     },
     TitanhApi,
 };
 use anyhow::Result;
-use codec::Decode;
+use codec::{Decode, Encode};
 use crypto::IpfsPair;
-use sp_core::H256;
+use sp_core::{Blake2Hasher, Hasher, H256};
 use types::PinningRing;
 
 pub struct PinningCommitteeApi<'a> {
@@ -75,7 +78,10 @@ impl PinningCommitteeApi<'_> {
         let pinning_nodes_call = calls::build_pinning_nodes_call(pinning_nodes);
         calls.push(pinning_nodes_call);
 
-        let tx_hash = self.titanh.sing_and_submit_batch(calls, true).await?;
+        let tx_hash = self
+            .titanh
+            .sing_and_submit_batch(calls, ConsistencyLevel::High)
+            .await?;
 
         Ok(tx_hash)
     }
@@ -89,9 +95,45 @@ impl PinningCommitteeApi<'_> {
                 calls.push(registration_call);
             }
 
-            let tx_hash = self.titanh.sing_and_submit_batch(calls, true).await?;
+            let tx_hash = self
+                .titanh
+                .sing_and_submit_batch(calls, ConsistencyLevel::High)
+                .await?;
 
             Ok(tx_hash)
+        } else {
+            Err(anyhow::anyhow!("IPFS peers keys are not set"))
+        }
+    }
+
+    /// Leaves the committee, providing the block number until which the node has checkpointed its data. Its data is pointed by the list of cids provided as `Vec<Vec<u8>>`.
+    pub async fn leave_committee(
+        &self,
+        cids: Vec<Vec<u8>>,
+        block_num: BlockNumber,
+    ) -> Result<H256> {
+        let pinning_node = self.compute_pinning_node_id()?;
+        let leave_tx = titanh::tx()
+            .pinning_committee()
+            .rm_pinning_node(pinning_node, KeyTableAt { block_num, cids });
+
+        let tx_hash = self
+            .titanh
+            .sign_and_submit_wait_finalized(&leave_tx)
+            .await?;
+
+        Ok(tx_hash.extrinsic_hash())
+    }
+
+    fn compute_pinning_node_id(&self) -> Result<H256> {
+        if let Some(ipfs_peers) = &self.ipfs_peers {
+            let mut ids = Vec::new();
+
+            for ipfs_peer in ipfs_peers {
+                ids.extend_from_slice(&ipfs_peer.public().encode());
+            }
+
+            Ok(Blake2Hasher::hash(&ids[..]))
         } else {
             Err(anyhow::anyhow!("IPFS peers keys are not set"))
         }
