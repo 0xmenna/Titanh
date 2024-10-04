@@ -3,34 +3,23 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
-# Check if the variable IPFS_REPLICAS is set
-if [ -z "$IPFS_REPLICAS" ]; then
-  echo "Error: IPFS_REPLICAS environment variable is not set."
-  exit 1
-fi
-
-
 # Base ports
 SWARM_BASE=4001
 API_BASE=5001
 GATEWAY_BASE=8080
 
-# Function to retrieve dynamic node variables (PRIVKEY or PEERID)
-get_node_variable() {
-  local NODE_NUM=$1
-  local VAR_TYPE=$2 # PRIVKEY or PEERID
-  local VAR_NAME="NODE_${NODE_NUM}_${VAR_TYPE}"
+IPFS_CONFIG_PATH="$HOME/config/ipfs-keys.json"
+BOOTSTRAP_CONFIG_PATH="$HOME/config/bootnodes.json"
 
-  # Obtain the value of the variable dynamically
-  local VAR_VALUE="${!VAR_NAME}"
-  if [ -z "$VAR_VALUE" ]; then
-    echo "Error: $VAR_NAME is not set."
-    exit 1
-  fi
-  echo "$VAR_VALUE"
+# Function to retrieve privateKey and peerId from the JSON file
+get_node_config() {
+  local FILE_PATH=$1
+  local NODE_INDEX=$2
+  local FIELD=$3
+  jq -r ".keys[$NODE_INDEX].$FIELD" "$FILE_PATH"
 }
 
-# Initialize and configure an IPFS node
+# Function to initialize and configure an IPFS node
 initialize_node() {
   local NODE_DIR=$1
   local SWARM_PORT=$2
@@ -39,6 +28,7 @@ initialize_node() {
   local PRIVKEY=$5
   local PEERID=$6
 
+  # Initialize the node if not already initialized
   if [ ! -d "$NODE_DIR" ]; then
     echo "Initializing IPFS repository in $NODE_DIR..."
     IPFS_PATH="$NODE_DIR" ipfs init --profile=server
@@ -56,8 +46,7 @@ initialize_node() {
     exit 1
   fi
 
-  # Configure the Swarm addresses to listen on the local IP within 172.10.0.0/16
-  echo "Configuring Swarm addresses..."
+  # Configure the Swarm addresses
   SWARM_JSON="[\
     \"/ip4/0.0.0.0/tcp/$SWARM_PORT\",\
     \"/ip4/0.0.0.0/udp/$SWARM_PORT/quic-v1\",\
@@ -65,15 +54,14 @@ initialize_node() {
 ]"
   IPFS_PATH="$NODE_DIR" ipfs config --json Addresses.Swarm "$SWARM_JSON"
 
-  # Configure API and Gateway to listen on all interfaces (can be adjusted if needed)
-  echo "Configuring API port to $API_PORT..."
+  # Configure API and Gateway
   IPFS_PATH="$NODE_DIR" ipfs config Addresses.API "/ip4/0.0.0.0/tcp/$API_PORT"
-
-  echo "Configuring Gateway port to $GATEWAY_PORT..."
   IPFS_PATH="$NODE_DIR" ipfs config Addresses.Gateway "/ip4/0.0.0.0/tcp/$GATEWAY_PORT"
-  
+
+  # Add bootnodes (optional, depending on your setup)
   add_bootnodes_from_json "$HOME/config/bootnodes.json" "$NODE_DIR"
 }
+
 
 # Function to add bootnodes from a JSON file
 add_bootnodes_from_json() {
@@ -139,6 +127,8 @@ start_daemon() {
   echo "$NODE_NAME daemon started with PID $!"
 }
 
+# Read the number of keys from the JSON file
+IPFS_REPLICAS=$(jq '.keys | length' "$IPFS_CONFIG_PATH")
 # Loop to initialize and run the specified number of IPFS replicas
 for ((i=1; i<=$IPFS_REPLICAS; i++)); do
   NODE_DIR="$HOME/.ipfs-node$i"
@@ -147,9 +137,10 @@ for ((i=1; i<=$IPFS_REPLICAS; i++)); do
   GATEWAY_PORT=$((GATEWAY_BASE + i - 1))
   NODE_NAME="node$i"
 
-  # Retrieve dynamic PRIVKEY and PEERID
-  PRIVKEY=$(get_node_variable "$i" "PRIVKEY")
-  PEERID=$(get_node_variable "$i" "PEERID")
+  CONFIG_FILE=$IPFS_CONFIG_PATH
+  NODE_IDX=$((i - 1))
+  PRIVKEY=$(get_node_config "$CONFIG_FILE" $NODE_IDX "privateKey")
+  PEERID=$(get_node_config "$CONFIG_FILE" $NODE_IDX "peerId")
 
   # Initialize and configure the IPFS node
   initialize_node "$NODE_DIR" "$SWARM_PORT" "$API_PORT" "$GATEWAY_PORT" "$PRIVKEY" "$PEERID"
@@ -164,11 +155,12 @@ echo "-------------------------------------------"
 for ((i=1; i<=$IPFS_REPLICAS; i++)); do
   API_PORT=$((API_BASE + i - 1))
   GATEWAY_PORT=$((GATEWAY_BASE + i - 1))
+  NODE_IDX=$((i - 1))
   echo "Node $i:"
   echo "  API Endpoint: http://127.0.0.1:$API_PORT"
   echo "  Gateway Endpoint: http://127.0.0.1:$GATEWAY_PORT"
   echo "  Log File: $HOME/node${i}_daemon.log"
-  echo "  PeerId: $(get_node_variable "$i" "PEERID")"
+  echo "  PeerId: $(get_node_config "$CONFIG_FILE" $NODE_IDX "peerId")"
   echo "-------------------------------------------"
 done
 
