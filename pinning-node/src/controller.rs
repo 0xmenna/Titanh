@@ -9,10 +9,10 @@ use crate::{
 };
 
 pub struct PinningNodeController {
-    /// Node event producer. It pulls events from the chain and produces them into the events pool.
-    /// A thread is spawned to handle finalized blocks in real-time. Blocks contain events of interest to the node.
+    /// Node event producer.
+    /// A thread is spawned to pull events of real-time finalized blocks from the chain and produce them into the events pool. It only produces events relevant to the node.
     producer: NodeProducer,
-    /// Node event consumer. It consumes and dispatches events from the events pool, that abstracts away a channel.
+    /// Node event consumer. It consumes and dispatches events from the events pool (that abstracts away a channel).
     consumer: NodeConsumer,
 }
 

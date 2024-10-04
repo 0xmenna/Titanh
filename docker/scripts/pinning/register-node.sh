@@ -19,8 +19,9 @@ fi
 
 NODE_IDX="$1"
 
+
 # List of required environment variables
-REQUIRED_VARS=("VALIDATOR_SEED" "CHAIN_RPC" "IPFS_RPC" "REPLICATION_FACTOR")
+REQUIRED_VARS=("VALIDATOR_SEED" "CHAIN_RPC" "FAILURE_RETRY")
 
 # Check if each required environment variable is set
 for var in "${REQUIRED_VARS[@]}"; do
@@ -28,6 +29,7 @@ for var in "${REQUIRED_VARS[@]}"; do
         error_exit "$var environment variable is not set."
     fi
 done
+
 
 # Define paths
 CLI_PATH="$HOME/cli/pinning-committee/target/release/pinning-committee"
@@ -39,14 +41,11 @@ fi
 
 IPFS_SEEDS_PATH="$HOME/config/virtual-$NODE_IDX/ipfs_seeds"
 
-echo "===================================================================="
-echo "Uploading node keytable to IPFS and sending the leave tx on chain..."
-echo "===================================================================="
+echo "==============================================================="
+echo "Sending registration transaction on chain for virtual node $NODE_IDX..."
+echo "==============================================================="
 
-"$CLI_PATH" leave-pinning-committee \
+"$CLI_PATH" register-pinning-node \
     --seed-phrase "$VALIDATOR_SEED" \
-    --seeds-file "$IPFS_SEEDS_PATH" \
-    --idx "$NODE_IDX" \
-    --chain-rpc "$CHAIN_RPC" \
-    --ipfs-rpc "$IPFS_RPC" \
-    --table-rows "$REPLICATION_FACTOR"
+    --rpc "$CHAIN_RPC" \
+    --seeds-file "$IPFS_SEEDS_PATH"

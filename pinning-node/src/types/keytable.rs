@@ -9,8 +9,8 @@ use anyhow::Result;
 use api::capsules_types::CapsuleKey;
 use codec::{Decode, Encode};
 
-/// Maximum number of columns that can be stored in the table. Assuming a (column, value) pair is approximately 70/80 bytes, a single row can handle 32 GB of data.
-pub const MAX_COLUMNS: u32 = 452_102_030;
+/// Maximum number of columns that can be stored in the table. Assuming a (column, value) pair is approximately 76 bytes (key=>cid), a single row can handle approximately 256 MB.
+pub const MAX_COLUMNS: u32 = 3368416;
 /// Bounded BTreeMap that stores key-value pairs ordered by key. It is the row abstraction of the table.
 #[derive(Encode, Decode, Clone)]
 pub struct Row<C, V, const S: u32>(BTreeMap<C, V>);
