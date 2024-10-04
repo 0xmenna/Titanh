@@ -15,4 +15,4 @@ docker exec -u root -it $CONTAINER_1 /bin/bash -c "chown -R $USER:$USER /home/$U
 docker exec -u root -it $CONTAINER_1 /bin/bash -c "chown -R $USER:$USER /home/$USER/cli"
 docker exec -u root -it $CONTAINER_1 /bin/bash -c "chown -R $USER:$USER /home/$USER/api"
 docker exec -u root -it $CONTAINER_1 /bin/bash -c "chown -R $USER:$USER /home/$USER/config"
-
+docker exec -u root -it $CONTAINER_1 /bin/bash -c "chown -R $USER:$USER /home/$USER/scripts"
