@@ -1,5 +1,5 @@
 use crate::{
-    common_types::{BlockHash, BlockNumber, ConsistencyLevel},
+    common_types::{BlockInfo, BlockNumber, ConsistencyLevel},
     titanh::{
         self,
         runtime_types::{
@@ -44,9 +44,9 @@ impl PinningCommitteeApi<'_> {
         })
     }
 
-    pub async fn pinning_ring_at(&mut self, at: BlockHash) -> Result<PinningRing> {
+    pub async fn pinning_ring_at(&mut self, block: BlockInfo) -> Result<PinningRing> {
         let ring_query = titanh::storage().pinning_committee().pinning_nodes_ring();
-        let ring = self.titanh.query(&ring_query, Some(at)).await?;
+        let ring = self.titanh.query(&ring_query, Some(block.hash)).await?;
         let ring = ring.0.to_vec();
 
         let replication_factor_query = titanh::storage()
@@ -54,10 +54,10 @@ impl PinningCommitteeApi<'_> {
             .content_replication_factor();
         let replication_factor = self
             .titanh
-            .query(&replication_factor_query, Some(at))
+            .query(&replication_factor_query, Some(block.hash))
             .await?;
 
-        let pinning_ring = PinningRing::new(ring, replication_factor, at);
+        let pinning_ring = PinningRing::new(ring, replication_factor, block);
         Ok(pinning_ring)
     }
 

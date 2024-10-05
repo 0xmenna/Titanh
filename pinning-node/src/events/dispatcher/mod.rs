@@ -55,6 +55,7 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
             match event {
                 // Pinning event
                 NodeEvent::Pinning(event) => {
+                    log::info!("Dispatching pinning event {:?}", event.clone());
                     let maybe_pin = self.keys.dispatch(event)?;
 
                     if let Some(pin_event) = maybe_pin {
@@ -63,24 +64,28 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                             .async_dispatch(pin_event.clone())
                             .await
                             .unwrap();
-                        log::info!("Pinning event {:?} dispatched successfully", pin_event);
+                        log::info!("Pinning event dispatched successfully");
                     }
                 }
                 // Node registration event
                 NodeEvent::NodeRegistration(node_id) => {
+                    log::info!(
+                        "Dispatching node registration event. New node ID{:?}",
+                        node_id
+                    );
                     self.keys.dispatch(node_id)?;
                 }
                 // Node removal event
                 NodeEvent::NodeRemoval(leave_event) => {
+                    log::info!("Dispatching node removal event {:?}", leave_event);
                     // (event, event_block_num, event_idx)
                     let leaved_event_at = (leave_event, self.block_num + 1, idx);
-
                     // Dispatch the leave event and get the CID that locates the row to be transferred
                     let res = self.keys.async_dispatch(leaved_event_at).await?;
-
+                    log::info!("Ci arrivo 2");
                     if let Some((cid, batch)) = res {
                         let mut transferred_row = self.pinning.async_dispatch((cid, batch)).await?;
-
+                        log::info!("Ci arrivo 3");
                         // Update the table with the row fetched from IPFS
                         self.keys
                             .mutable_keytable()
@@ -89,6 +94,7 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                 }
                 // Block barrier event for checkpointing
                 NodeEvent::BlockBarrier(block_num) => {
+                    log::info!("Checkpointing at block_num {:?}", block_num);
                     // get the rows of the keytable to be flushed
                     let flushing_rows = self.keys.mutable_keytable().flush();
 

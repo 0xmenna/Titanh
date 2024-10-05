@@ -1,4 +1,5 @@
 use super::{batch::Batch, cid::Cid, keytable::TableRow};
+use anyhow::Result;
 use api::{
     capsules_types::CapsuleKey,
     common_types::BlockNumber,
@@ -22,6 +23,14 @@ pub enum NodeEvent {
 }
 
 impl NodeEvent {
+    pub fn from_capsule(key: CapsuleKey, cid: Vec<u8>) -> Result<Self> {
+        let cid = Cid::try_from(cid)?;
+        Ok(NodeEvent::Pinning(KeyedPinningEvent {
+            key,
+            pin: PinningEvent::Pin { cid },
+        }))
+    }
+
     pub fn is_committee_event(&self) -> bool {
         match self {
             NodeEvent::NodeRegistration(_) | NodeEvent::NodeRemoval { .. } => true,
@@ -140,7 +149,7 @@ pub fn try_event_from_runtime(event: RuntimeEvent) -> Option<NodeEvent> {
                 }))
             }
             // Deletion event
-            CapsuleEvent::CapsuleDeleted { capsule_id, cid } => {
+            CapsuleEvent::CapsuleStartedDestroying { capsule_id, cid } => {
                 let cid = cid.try_into().ok()?;
                 node_event = Some(NodeEvent::Pinning(KeyedPinningEvent {
                     key: capsule_id,

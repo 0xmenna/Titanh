@@ -3,6 +3,7 @@ use crate::{
     db::checkpointing::DbCheckpoint,
     utils::{config::Config, traits::ClientBuilder},
 };
+use anyhow::Result;
 use api::{common_types::BlockInfo, pinning_committee_types::NodeId, TitanhApiBuilder};
 use async_trait::async_trait;
 
@@ -33,17 +34,17 @@ pub struct SubstrateClientBuilder<'a> {
 }
 
 #[async_trait]
-impl<'a> ClientBuilder<'a, SubstrateClient> for SubstrateClientBuilder<'a> {
+impl<'a> ClientBuilder<'a, Result<SubstrateClient>> for SubstrateClientBuilder<'a> {
     fn from_config(config: &'a Config) -> Self {
         let config = SubstratePinningConfig::from(config);
         Self { config }
     }
 
-    async fn build(self) -> SubstrateClient {
+    async fn build(self) -> Result<SubstrateClient> {
         let api = TitanhApiBuilder::rpc(&self.config.rpc_url)
             .seed(&self.config.seed_phrase)
             .build()
-            .await;
+            .await?;
 
         let maybe_block_num = DbCheckpoint::get_blocknumber_from_db_node(
             self.config.virtual_node_idx,
@@ -56,6 +57,6 @@ impl<'a> ClientBuilder<'a, SubstrateClient> for SubstrateClientBuilder<'a> {
             api.latest_finalized_block().await.unwrap()
         };
 
-        SubstrateClient::new(api, self.config.node_id, block)
+        Ok(SubstrateClient::new(api, self.config.node_id, block))
     }
 }

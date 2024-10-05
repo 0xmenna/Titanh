@@ -68,7 +68,7 @@ impl MutableDispatcher<JoinNodeEvent, ()> for KeysDispatcher {
     fn dispatch(&mut self, node: JoinNodeEvent) -> Result<()> {
         // Insert the node and retrieve its position in the ring
         let idx = self.ring.insert_node(&node)?;
-		// Get the distance of `self` with respect to the new node
+        // Get the distance of `self` with respect to the new node
         let dist = self.ring.distance_from_idx(idx, &self.client.node_id())?;
         if dist <= self.ring.replication() {
             // The pinning node is impacted by the join, so it should drop some keys.
@@ -99,6 +99,10 @@ impl<'a> AsyncMutableDispatcher<LeaveNodeEventAt, Option<(Cid, Batch<PinningEven
             .ring
             .distance_between(&self.client.node_id(), &left_node)?;
         self.ring.remove_node(&left_node)?;
+
+        if dist == 0 {
+            panic!("The current node is not expected to read a leave event of itself, remove the node checkpointing db and restart the node");
+        }
 
         if dist <= self.ring.replication() {
             // The row that needs to be merged with the next one

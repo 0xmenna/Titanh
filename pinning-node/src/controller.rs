@@ -7,6 +7,7 @@ use crate::{
     types::events_pool::NodeEventsPool,
     utils::traits::ClientBuilder,
 };
+use anyhow::Result;
 
 pub struct PinningNodeController {
     /// Node event producer.
@@ -17,10 +18,10 @@ pub struct PinningNodeController {
 }
 
 impl PinningNodeController {
-    pub async fn bootstrap() -> Self {
+    pub async fn bootstrap() -> Result<Self> {
         let config = Cli::parse_config();
         // Build the substrate client to read the blockchain related data
-        let sub_client = SubstrateClientBuilder::from_config(&config).build().await;
+        let sub_client = SubstrateClientBuilder::from_config(&config).build().await?;
         log::info!(
             "Substrate client initialized at block number: {}, with ID: {}",
             sub_client.height(),
@@ -36,15 +37,21 @@ impl PinningNodeController {
         log::info!("Checkpoint is at block number: {}", checkpoint.height());
         // Block number until which the node has processed events.
         // The keytable is updated at this block number.
-        let block_num = checkpoint.height();
+        let checkpoint_height = checkpoint.height();
 
         let sub_client = sub_client.arc();
         let events_pool = NodeEventsPool::new().mutable_ref();
 
-        let producer = NodeProducer::new(sub_client.clone(), events_pool.clone(), block_num);
+        let start_block_recovering = checkpoint_height + 1;
+        let producer = NodeProducer::new(
+            sub_client.clone(),
+            events_pool.clone(),
+            start_block_recovering,
+            ring.height(),
+        );
 
         // Build the IPFS client for ipfs related operations (e.g. pinning, unpinning, reading files)
-        let ipfs_client = IpfsClientBuilder::from_config(&config).build().await;
+        let ipfs_client = IpfsClientBuilder::from_config(&config).build().await?;
         log::info!(
             "IPFS client initialized successfully using replicas: {:?}",
             config.ipfs_peers
@@ -56,19 +63,21 @@ impl PinningNodeController {
             sub_client,
             ring,
             checkpoint.keytable(),
-            block_num,
+            checkpoint_height,
         );
         let consumer = NodeConsumer::new(events_pool, dispatcher);
 
-        Self { producer, consumer }
+        Ok(Self { producer, consumer })
     }
 
-    pub async fn execute(mut self) {
-        let producer_handle = self.producer.produce_events().await.unwrap();
+    pub async fn execute(mut self) -> Result<()> {
+        // Spawn the producer thread
+        let producer_handle = self.producer.produce_events();
 
-        self.consumer.consume_events().await.unwrap();
+        // Run the consumer task concurrently
+        self.consumer.consume_events().await?;
 
-        // Wait because node continues to handle events in the background
-        let _ = producer_handle.await.unwrap();
+        // Wait for the producer task to complete
+        producer_handle.await?
     }
 }

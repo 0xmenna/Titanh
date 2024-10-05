@@ -198,7 +198,7 @@ impl Document<'_> {
             .await
     }
 
-    /// Removes a document entry (without unlinking the underlining capsule)
+    /// Removes a document entry (removing also the underlining capsule)
     pub async fn remove_with_level<Key: Encode>(
         &self,
         field_key: Key,
@@ -207,6 +207,12 @@ impl Document<'_> {
         let rm_container_tx = titanh::tx()
             .capsules()
             .container_remove(self.id, field_key.encode());
+
+        let capsule_id = self.compute_capsule_id(field_key);
+        self.api
+            .capsules
+            .remove_with_level(capsule_id, level)
+            .await?;
 
         self.api
             .capsules

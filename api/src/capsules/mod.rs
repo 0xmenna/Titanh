@@ -53,7 +53,7 @@ impl<'a> CapsulesApi<'a> {
     pub async fn put<Id, Value>(&self, id: Id, data: Value) -> Result<H256>
     where
         Id: Encode,
-        Value: Encode + Decode,
+        Value: Encode,
     {
         let tx_hash = self
             .put_with_options(id, data, PutCapsuleOpts::default())
@@ -65,7 +65,7 @@ impl<'a> CapsulesApi<'a> {
     pub async fn put_async<Id, Value>(&self, id: Id, data: Value) -> Result<H256>
     where
         Id: Encode,
-        Value: Encode + Decode,
+        Value: Encode,
     {
         let mut opts = PutCapsuleOpts::default();
         opts.level = ConsistencyLevel::Low;
@@ -80,7 +80,7 @@ impl<'a> CapsulesApi<'a> {
     pub async fn put_wait_finalized<Id, Value>(&self, id: Id, data: Value) -> Result<H256>
     where
         Id: Encode,
-        Value: Encode + Decode,
+        Value: Encode,
     {
         let mut opts = PutCapsuleOpts::default();
         opts.level = ConsistencyLevel::High;
@@ -126,6 +126,44 @@ impl<'a> CapsulesApi<'a> {
         let tx_hash = self
             .titanh
             .sign_and_submit_tx_with_level(&upload_tx, consistency_level)
+            .await?;
+
+        Ok(tx_hash)
+    }
+
+    /// Removes a capsules. Waits for block inclusion
+    pub async fn remove<Id: Encode>(&self, id: Id) -> Result<H256> {
+        let tx_hash = self
+            .remove_with_level(id, ConsistencyLevel::default())
+            .await?;
+        Ok(tx_hash)
+    }
+
+    /// Removes a capsules. Wait for block finalization
+    pub async fn remove_wait_finalized<Id: Encode>(&self, id: Id) -> Result<H256> {
+        let tx_hash = self.remove_with_level(id, ConsistencyLevel::High).await?;
+        Ok(tx_hash)
+    }
+
+    /// Removes a capsules. Only waits for transaction pool inclusion
+    pub async fn remove_async<Id: Encode>(&self, id: Id) -> Result<H256> {
+        let tx_hash = self.remove_with_level(id, ConsistencyLevel::Low).await?;
+        Ok(tx_hash)
+    }
+
+    pub async fn remove_with_level<Id: Encode>(
+        &self,
+        id: Id,
+        level: ConsistencyLevel,
+    ) -> Result<H256> {
+        let config = self.ensure_config()?;
+        let capsule_id = self.compute_capsule_id(id, config.app);
+
+        let remove_tx = titanh::tx().capsules().start_destroy_capsule(capsule_id);
+
+        let tx_hash = self
+            .titanh
+            .sign_and_submit_tx_with_level(&remove_tx, level)
             .await?;
 
         Ok(tx_hash)

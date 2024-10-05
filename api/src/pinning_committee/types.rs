@@ -1,4 +1,7 @@
-use crate::{capsules_types::CapsuleKey, common_types::BlockHash};
+use crate::{
+    capsules_types::CapsuleKey,
+    common_types::{BlockHash, BlockInfo},
+};
 use anyhow::Result;
 use sp_core::H256;
 
@@ -9,8 +12,8 @@ pub type NodeId = H256;
 pub struct PinningRing {
     ring: Vec<NodeId>,
     replication_factor: u32,
-    /// The block hash at which the ring was first initialized
-    at: BlockHash,
+    /// The block info at which the ring was first initialized
+    block: BlockInfo,
 }
 
 pub enum NodeLookup {
@@ -21,11 +24,11 @@ pub enum NodeLookup {
 }
 
 impl PinningRing {
-    pub fn new(ring: Vec<NodeId>, replication_factor: u32, at: BlockHash) -> Self {
+    pub fn new(ring: Vec<NodeId>, replication_factor: u32, block: BlockInfo) -> Self {
         Self {
             ring,
             replication_factor,
-            at,
+            block,
         }
     }
 
@@ -162,6 +165,10 @@ impl PinningRing {
     }
 
     pub fn at(&self) -> BlockHash {
-        self.at
+        self.block.hash
+    }
+
+    pub fn height(&self) -> u32 {
+        self.block.number
     }
 }

@@ -2,6 +2,7 @@ use crate::{
     common_types::{KeyPair, Rpc, SubstrateApi},
     TitanhApi,
 };
+use anyhow::Result;
 use sp_core::Pair;
 use subxt::{backend::rpc::RpcClient, tx::PairSigner};
 
@@ -27,26 +28,22 @@ impl TitanhApiBuilder {
         }
     }
 
-    pub async fn build(self) -> TitanhApi {
+    pub async fn build(self) -> Result<TitanhApi> {
         // Derive the key pair from the seed phrase (mnemonic)
         let signer = if let Some(seed_phrase) = self.seed_phrase {
-            let pair = KeyPair::from_string(&seed_phrase, None).expect("Invalid key pair");
+            let pair = KeyPair::from_string(&seed_phrase, None)?;
             let signer = PairSigner::new(pair);
             Some(signer)
         } else {
             None
         };
         // SECURITY NOTE: We are using an insecure connection assuming that the node is communicating with a trusted local network node: NO NOT RUN THIS CODE IN PRODUCTION
-        let rpc_client = RpcClient::from_insecure_url(self.rpc_url)
-            .await
-            .expect("Invalid rpc url");
+        let rpc_client = RpcClient::from_insecure_url(self.rpc_url).await?;
         let rpc = Rpc::new(rpc_client.clone());
 
         // We can use the same client to drive our full Subxt interface
-        let api = SubstrateApi::from_rpc_client(rpc_client.clone())
-            .await
-            .expect("Expected a valid Substrate API");
+        let api = SubstrateApi::from_rpc_client(rpc_client.clone()).await?;
 
-        TitanhApi::new(api, rpc, signer)
+        Ok(TitanhApi::new(api, rpc, signer).await?)
     }
 }

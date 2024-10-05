@@ -70,7 +70,7 @@ impl User {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub enum ConsistencyLevel {
     // This level of consistency reflects an eventual consistency model => Transaction is valid and included in the transaction pool. Not yet processed in a block.
     Low,

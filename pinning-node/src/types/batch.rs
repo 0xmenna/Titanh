@@ -31,10 +31,6 @@ impl<T> Batch<T> {
         self.0.extend(batch.0);
     }
 
-    pub fn clear(&mut self) {
-        self.0.clear();
-    }
-
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.0.iter()
     }

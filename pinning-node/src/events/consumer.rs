@@ -25,14 +25,6 @@ impl NodeConsumer {
     pub async fn consume_events(mut self) -> Result<()> {
         let mut events_pool = self.events_pool.borrow_mut();
 
-        // First, we dispatch the recovered batch of events
-        let batch = events_pool.recovered_batch();
-        log::info!("Dispatching recovered batch..");
-
-        self.dispatcher.async_dispatch(batch).await?;
-        events_pool.clear_recovered_batch();
-        log::info!("Dispatched recovered events successfully");
-
         // Consume and dispatch upcoming events from the pool (aka channel), grouping them into batches.
         let mut consuming_batch = Batch::default();
         while let Some(event) = events_pool.read_handle().receive_events().await {

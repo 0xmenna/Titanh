@@ -1,6 +1,5 @@
 use anyhow::Result;
 use app_registrar::AppRegistrarApi;
-use capsules::CapsulesApi;
 use common::{
     titanh::{
         runtime_types::{frame_system::EventRecord, titanh_runtime::RuntimeEvent},
@@ -23,6 +22,7 @@ mod pinning_committee;
 // Export
 pub use builder::TitanhApiBuilder;
 pub use capsules::types as capsules_types;
+pub use capsules::CapsulesApi;
 pub use common::{titanh, types as common_types};
 pub use pinning_committee::types as pinning_committee_types;
 
@@ -35,15 +35,29 @@ pub struct TitanhApi {
     pub rpc: Rpc,
     /// The singer of transactions
     pub signer: Option<Signer>,
+    /// The nonce used for signing transactions
+    pub nonce: Option<u64>,
 }
 
 impl TitanhApi {
-    pub fn new(substrate_api: SubstrateApi, rpc: Rpc, signer: Option<Signer>) -> Self {
-        TitanhApi {
+    pub async fn new(
+        substrate_api: SubstrateApi,
+        rpc: Rpc,
+        signer: Option<Signer>,
+    ) -> Result<Self> {
+        let nonce = if let Some(signer) = &signer {
+            let nonce = rpc.system_account_next_index(signer.account_id()).await?;
+            Some(nonce)
+        } else {
+            None
+        };
+
+        Ok(TitanhApi {
             substrate_api,
             rpc,
             signer,
-        }
+            nonce,
+        })
     }
 
     /// Returns the app registrar api
@@ -136,7 +150,7 @@ impl TitanhApi {
     pub async fn sign_and_submit<Call: Payload>(&self, tx: &Call) -> Result<H256> {
         let signer = self.ensure_signer()?;
         let tx_hash = self
-            .substrate_api
+            .substrate_api.
             .tx()
             .sign_and_submit_default(tx, signer)
             .await?;

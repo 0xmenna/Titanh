@@ -1,5 +1,6 @@
 use super::client::IpfsClient;
 use crate::utils::{config::Config, traits::ClientBuilder};
+use anyhow::Result;
 use async_trait::async_trait;
 use ipfs_api_backend_hyper::{IpfsClient as ApiIpfsClient, TryFromUri};
 
@@ -24,13 +25,13 @@ pub struct IpfsClientBuilder<'a> {
 const MAX_REPLICAS: usize = 10;
 
 #[async_trait]
-impl<'a> ClientBuilder<'a, IpfsClient> for IpfsClientBuilder<'a> {
+impl<'a> ClientBuilder<'a, Result<IpfsClient>> for IpfsClientBuilder<'a> {
     fn from_config(config: &'a Config) -> Self {
         let config = IpfsConfig::from(config);
         Self { config }
     }
 
-    async fn build(self) -> IpfsClient {
+    async fn build(self) -> Result<IpfsClient> {
         let replicas: Result<Vec<ApiIpfsClient>, _> = self
             .config
             .rpc_replicas
@@ -38,18 +39,17 @@ impl<'a> ClientBuilder<'a, IpfsClient> for IpfsClientBuilder<'a> {
             .map(|url| ApiIpfsClient::from_str(url))
             .collect();
 
-        match replicas {
-            Ok(replicas) => {
-                if replicas.is_empty() {
-                    panic!("No replicas provided");
-                }
-
-                if replicas.len() > MAX_REPLICAS {
-                    panic!("Too many replicas provided");
-                }
-                IpfsClient::new(replicas, self.config.failure_retry)
-            }
-            Err(e) => panic!("Failed to create IPFS client: {}", e),
+        let replicas = replicas?;
+        if replicas.is_empty() {
+            return Err(anyhow::anyhow!("No replicas provided"));
         }
+
+        if replicas.len() > MAX_REPLICAS {
+            return Err(anyhow::anyhow!(
+                "Too many replicas provided, max is {}",
+                MAX_REPLICAS
+            ));
+        }
+        Ok(IpfsClient::new(replicas, self.config.failure_retry))
     }
 }

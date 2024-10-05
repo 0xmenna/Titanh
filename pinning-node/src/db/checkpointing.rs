@@ -42,8 +42,9 @@ impl DbCheckpoint {
     }
 
     fn open_db_from_node(idx: u32, node_id: NodeId) -> Db {
+        let home = std::env::var("HOME").unwrap();
         let node_id = hex::encode(&node_id.encode()[..=8]);
-        let db_name = format!("virtual_{}/db_{}", idx, node_id);
+        let db_name = format!("{}/virtual_{}/db_{}", home, idx, node_id);
         sled::open(db_name).unwrap()
     }
 

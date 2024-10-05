@@ -52,7 +52,7 @@ impl SubstrateClient {
         Ok(batch)
     }
 
-    /// Returns the list of events occured between a block range. It can skip a number of events for the `start` block because they may have been already processed.
+    /// Returns the list of events occured between a block range.
     pub async fn events_in_range(
         &self,
         start: BlockNumber,
@@ -85,7 +85,7 @@ impl SubstrateClient {
         let ring = self
             .api
             .pinning_committee()
-            .pinning_ring_at(self.block.hash)
+            .pinning_ring_at(self.block)
             .await
             .expect("Pinning ring is expected to be initialized");
 
