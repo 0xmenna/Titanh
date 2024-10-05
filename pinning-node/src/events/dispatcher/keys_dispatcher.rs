@@ -47,12 +47,11 @@ impl MutableDispatcher<KeyedPinningEvent, Option<PinningEvent>> for KeysDispatch
             .ring
             .key_node_partition(event.key, self.client.node_id())?;
 
-        let pin = if let Some(partition) = maybe_partition {
+        let pin = if let Some(partition_idx) = maybe_partition {
             // The key belongs to the pinning node
 
             // Update the keytable
-            let row_idx = partition.saturating_sub(1);
-            self.update_table_from_event(row_idx, &event)?;
+            self.update_table_from_event(partition_idx, &event)?;
 
             Some(event.pin)
         } else {

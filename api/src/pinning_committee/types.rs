@@ -132,11 +132,11 @@ impl PinningRing {
 
         let mut replica_nodes = Vec::new();
         if sum < self.ring.len() {
-            replica_nodes.extend_from_slice(&self.ring[next_node_idx..=sum]);
+            replica_nodes.extend_from_slice(&self.ring[next_node_idx..sum]);
         } else {
             let diff = sum - ring_size;
-            replica_nodes.extend_from_slice(&self.ring[0..diff]);
             replica_nodes.extend_from_slice(&self.ring[next_node_idx..ring_size]);
+            replica_nodes.extend_from_slice(&self.ring[0..diff]);
         }
 
         let partition_idx = replica_nodes.binary_search(&node_id);
