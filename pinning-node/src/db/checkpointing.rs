@@ -32,13 +32,23 @@ impl Checkpoint {
 pub struct DbCheckpoint {
     db: Db,
     rep_factor: u32,
+    keytable_out_file: Option<String>,
 }
 
 impl DbCheckpoint {
-    pub fn from_config(rep_factor: u32, node_id: NodeId, virtual_node_idx: u32) -> Self {
+    pub fn from_config(
+        rep_factor: u32,
+        node_id: NodeId,
+        virtual_node_idx: u32,
+        keytable_out_file: Option<String>,
+    ) -> Self {
         // Open database
         let db = Self::open_db_from_node(virtual_node_idx, node_id);
-        Self { db, rep_factor }
+        Self {
+            db,
+            rep_factor,
+            keytable_out_file,
+        }
     }
 
     fn open_db_from_node(idx: u32, node_id: NodeId) -> Db {
@@ -75,7 +85,8 @@ impl DbCheckpoint {
     /// Retrieves the checkpoint.
     pub fn get_checkpoint(&self) -> Result<Checkpoint> {
         // Build the keytable
-        let mut keytable = FaultTolerantKeyTable::new(self.rep_factor);
+        let mut keytable =
+            FaultTolerantKeyTable::new(self.rep_factor, self.keytable_out_file.clone());
         for idx in 0..self.rep_factor {
             let key = format!("partition_{}", idx);
             let row = Self::read_checkpoint_value::<TableRow>(&self.db, &key)?;

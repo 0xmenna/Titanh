@@ -12,7 +12,7 @@ pub fn read_node_checkpoint_from_db(
     node_id: H256,
     virtual_idx: u32,
 ) -> Result<Checkpoint> {
-    let db = DbCheckpoint::from_config(rep_factor, node_id, virtual_idx);
+    let db = DbCheckpoint::from_config(rep_factor, node_id, virtual_idx, None);
     let checkpoint = db.get_checkpoint()?;
     Ok(checkpoint)
 }

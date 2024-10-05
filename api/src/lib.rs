@@ -11,7 +11,10 @@ use common::{
 };
 use pinning_committee::PinningCommitteeApi;
 use sp_core::H256;
-use subxt::{storage::Address, tx::Payload, utils::Yes};
+use subxt::{
+    config::DefaultExtrinsicParamsBuilder as Params, storage::Address, tx::Payload, utils::Yes,
+    SubstrateConfig,
+};
 
 mod app_registrar;
 mod builder;
@@ -22,6 +25,7 @@ mod pinning_committee;
 // Export
 pub use builder::TitanhApiBuilder;
 pub use capsules::types as capsules_types;
+pub use capsules::types::CapsulesBatch;
 pub use capsules::CapsulesApi;
 pub use common::{titanh, types as common_types};
 pub use pinning_committee::types as pinning_committee_types;
@@ -35,8 +39,6 @@ pub struct TitanhApi {
     pub rpc: Rpc,
     /// The singer of transactions
     pub signer: Option<Signer>,
-    /// The nonce used for signing transactions
-    pub nonce: Option<u64>,
 }
 
 impl TitanhApi {
@@ -45,18 +47,10 @@ impl TitanhApi {
         rpc: Rpc,
         signer: Option<Signer>,
     ) -> Result<Self> {
-        let nonce = if let Some(signer) = &signer {
-            let nonce = rpc.system_account_next_index(signer.account_id()).await?;
-            Some(nonce)
-        } else {
-            None
-        };
-
         Ok(TitanhApi {
             substrate_api,
             rpc,
             signer,
-            nonce,
         })
     }
 
@@ -141,16 +135,20 @@ impl TitanhApi {
     }
 
     fn ensure_signer(&self) -> Result<&Signer> {
-        self.signer
+        let signer = self
+            .signer
             .as_ref()
-            .ok_or_else(|| anyhow::anyhow!("Signer is not set"))
+            .ok_or_else(|| anyhow::anyhow!("Signer is not set"))?;
+
+        Ok(signer)
     }
 
     /// Signs and submits a transaction. If it succeeds, it means the transaction is included in the transaction pool, not in a block.
     pub async fn sign_and_submit<Call: Payload>(&self, tx: &Call) -> Result<H256> {
         let signer = self.ensure_signer()?;
+
         let tx_hash = self
-            .substrate_api.
+            .substrate_api
             .tx()
             .sign_and_submit_default(tx, signer)
             .await?;
@@ -161,10 +159,17 @@ impl TitanhApi {
     /// Signs and submits a transaction. It waits for the transaction to be included in a block
     pub async fn sign_and_submit_wait_in_block<Call: Payload>(&self, tx: &Call) -> Result<Events> {
         let signer = self.ensure_signer()?;
+        let current_nonce = self
+            .rpc
+            .system_account_next_index(&signer.account_id())
+            .await?;
+        let ext_params = Params::<SubstrateConfig>::new()
+            .nonce(current_nonce)
+            .build();
         let mut tx_progress = self
             .substrate_api
             .tx()
-            .sign_and_submit_then_watch_default(tx, signer)
+            .sign_and_submit_then_watch(tx, signer, ext_params)
             .await?;
 
         while let Some(block_status) = tx_progress.next().await {
@@ -219,7 +224,7 @@ impl TitanhApi {
     }
 
     /// Signs and submits a batch of transactions (all or nothing). It waits until the transaction is finalized.
-    pub async fn sing_and_submit_batch(
+    pub async fn sign_and_submit_batch(
         &self,
         calls: RuntimeCalls,
         level: ConsistencyLevel,

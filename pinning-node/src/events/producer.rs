@@ -67,17 +67,16 @@ impl NodeProducer {
                 if !has_recovered {
                     // Before processing new events of finalized blocks, we must recover the events.
 
-                    let end_block_recovering = block_num.saturating_sub(1);
                     log::info!(
                         "Starting to recover events from {} to {}",
                         start_block_recovering,
-                        end_block_recovering
+                        block_num.saturating_sub(1)
                     );
                     produce_recover_events(
                         &client,
                         &mut pool_write_handle,
                         start_block_recovering,
-                        end_block_recovering,
+                        block_num,
                         ring_height,
                     )
                     .await?;
@@ -108,11 +107,12 @@ pub async fn produce_recover_events(
     client: &SubstrateClient,
     writing_handle: &mut PoolWritingHandle,
     start_block_recovering: BlockNumber,
-    end_block_recovering: BlockNumber,
+    lastest_finalized_block: BlockNumber,
     ring_height: BlockNumber,
 ) -> Result<()> {
+    println!("ring_height: {}", ring_height);
     assert!(
-        start_block_recovering <= ring_height && ring_height <= end_block_recovering,
+        start_block_recovering <= ring_height && ring_height <= lastest_finalized_block,
         "Block ranges are invalid for event recovery"
     );
 
@@ -123,7 +123,13 @@ pub async fn produce_recover_events(
         // Since the ring of the pinning node is up to date until `ring_height`, we can only recover capsules until that height. From `ring_height + 1` we need to recover events from the remaining blocks (to spot eventual node removals or joins).
 
         // Recover capsules
-        let block_hash = api.block_hash(ring_height).await?;
+        let block_num = if lastest_finalized_block == ring_height {
+            lastest_finalized_block.saturating_sub(1)
+        } else {
+            ring_height
+        };
+
+        let block_hash = api.block_hash(block_num).await?;
         let storage = api.substrate_api.storage().at(block_hash);
 
         let capsules_query = titanh::storage().capsules().capsules_iter();
@@ -148,7 +154,7 @@ pub async fn produce_recover_events(
 
         // Recover events from the remaining blocks
         let events_after_ring_height = client
-            .events_in_range(ring_height + 1, end_block_recovering)
+            .events_in_range(block_num + 1, lastest_finalized_block.saturating_sub(1))
             .await?;
         for event in events_after_ring_height {
             writing_handle.send_event(event.clone())?;
@@ -156,9 +162,11 @@ pub async fn produce_recover_events(
         }
     } else {
         // The node has restarted and must recover the events from the last checkpointed block
-
         let recover_batch = client
-            .events_in_range(start_block_recovering, end_block_recovering)
+            .events_in_range(
+                start_block_recovering,
+                lastest_finalized_block.saturating_sub(1),
+            )
             .await?;
         for event in recover_batch {
             writing_handle.send_event(event.clone())?;

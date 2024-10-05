@@ -74,6 +74,7 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                         node_id
                     );
                     self.keys.dispatch(node_id)?;
+                    log::info!("Node registration event dispatched successfully");
                 }
                 // Node removal event
                 NodeEvent::NodeRemoval(leave_event) => {
@@ -82,15 +83,14 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                     let leaved_event_at = (leave_event, self.block_num + 1, idx);
                     // Dispatch the leave event and get the CID that locates the row to be transferred
                     let res = self.keys.async_dispatch(leaved_event_at).await?;
-                    log::info!("Ci arrivo 2");
                     if let Some((cid, batch)) = res {
                         let mut transferred_row = self.pinning.async_dispatch((cid, batch)).await?;
-                        log::info!("Ci arrivo 3");
                         // Update the table with the row fetched from IPFS
                         self.keys
                             .mutable_keytable()
                             .extend_last_row(&mut transferred_row)?;
                     }
+                    log::info!("Node removal event dispatched successfully");
                 }
                 // Block barrier event for checkpointing
                 NodeEvent::BlockBarrier(block_num) => {
@@ -104,6 +104,9 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
 
                     // update the block number
                     self.block_num = block_num;
+
+                    // Log the keytable if needed
+                    self.keys.keytable().log(block_num)?;
                 }
             };
         }

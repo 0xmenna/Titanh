@@ -1,11 +1,12 @@
 use crate::{
+    capsules_types::PutCapsuleOpts,
     common_types::ConsistencyLevel,
     titanh::{
         self,
         runtime_types::{
             bounded_collections::bounded_vec::BoundedVec, primitives::common_types::BoundedString,
         },
-        utility::calls::types::batch::Calls,
+        utility::calls::types::batch_all::Calls,
     },
 };
 
@@ -97,12 +98,21 @@ impl Document<'_> {
         let mut calls = Calls::new();
 
         let capsule_id = self.compute_capsule_id(&field_key);
+        let mut opts = PutCapsuleOpts::default();
+        opts.level = level;
 
+        let finalized_block = self
+            .api
+            .capsules
+            .titanh
+            .latest_finalized_block()
+            .await?
+            .number;
         // First, upload the capsule to ipfs. We get the corresponding runtime call associated to the upload
         let runtime_call = self
             .api
             .capsules
-            .upload_capsule_to_ifps(&capsule_id, value)
+            .upload_capsule_to_ifps(&capsule_id, value, &opts, finalized_block)
             .await?;
         calls.push(runtime_call);
 
@@ -113,7 +123,7 @@ impl Document<'_> {
             .api
             .capsules
             .titanh
-            .sing_and_submit_batch(calls, level)
+            .sign_and_submit_batch(calls, level)
             .await?;
 
         Ok(tx_hash)

@@ -200,6 +200,10 @@ impl KeysDispatcher {
         &mut self.keytable
     }
 
+    pub fn keytable(&self) -> &FaultTolerantKeyTable {
+        &self.keytable
+    }
+
     pub fn update_table_from_event(
         &mut self,
         row_idx: usize,

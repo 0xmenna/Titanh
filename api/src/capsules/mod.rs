@@ -1,13 +1,15 @@
 use crate::{
-    common::FollowersStatus,
-    common_types::{ConsistencyLevel, Events, User},
+    common_types::{BlockNumber, ConsistencyLevel, Events, User},
     titanh::{
         self,
         capsules::calls::types::upload_capsule::App,
         runtime_types::{
-            pallet_capsules::{capsule::types::CapsuleUploadData, pallet::Call},
+            pallet_capsules::{
+                capsule::types::CapsuleUploadData, pallet::Call, types::FollowersStatus,
+            },
             titanh_runtime::RuntimeCall,
         },
+        utility::calls::types::batch_all::Calls,
     },
     TitanhApi,
 };
@@ -17,7 +19,7 @@ use futures::TryStreamExt;
 use ipfs_api_backend_hyper::{request::Add, IpfsApi, IpfsClient, TryFromUri};
 use sp_core::H256;
 use std::io::Cursor;
-use types::{GetCapsuleOpts, PutCapsuleOpts, UpdateCapsuleOpts};
+use types::{CapsulesBatch, GetCapsuleOpts, PutCapsuleOpts, UpdateCapsuleOpts};
 use utils::convert_bounded_str;
 
 pub struct CapsulesConfig {
@@ -70,9 +72,7 @@ impl<'a> CapsulesApi<'a> {
         let mut opts = PutCapsuleOpts::default();
         opts.level = ConsistencyLevel::Low;
 
-        let tx_hash = self
-            .put_with_options(id, data, PutCapsuleOpts::default())
-            .await?;
+        let tx_hash = self.put_with_options(id, data, opts).await?;
         Ok(tx_hash)
     }
 
@@ -105,17 +105,16 @@ impl<'a> CapsulesApi<'a> {
         let config = self.ensure_config()?;
 
         let (cid, size) = self.upload_to_ipfs(data).await?;
-        let (retention_blocks, followers_status, consistency_level) =
-            options.unwrap_fields_or_default();
+        let (retention_blocks, consistency_level) = options.unwrap_fields_or_default();
         let ending_retention_block =
             self.titanh.latest_finalized_block().await?.number + retention_blocks;
 
-        // Build the capsule
+        // Build the capsule (by default does not allow followers)
         let capsule = CapsuleUploadData {
             cid,
             size,
             ending_retention_block,
-            followers_status,
+            followers_status: FollowersStatus::None,
             encoded_metadata: id.encode(),
         };
 
@@ -128,6 +127,72 @@ impl<'a> CapsulesApi<'a> {
             .sign_and_submit_tx_with_level(&upload_tx, consistency_level)
             .await?;
 
+        Ok(tx_hash)
+    }
+
+    /// Put a batch of capsules to IPFS and add the metadata to the chain, waiting for transaction pool inclusion
+    pub async fn put_batch_async<Id, Value>(&self, batch: CapsulesBatch<Id, Value>) -> Result<H256>
+    where
+        Id: Encode,
+        Value: Encode,
+    {
+        let mut opts = PutCapsuleOpts::default();
+        opts.level = ConsistencyLevel::Low;
+
+        let tx_hash = self.put_batch_with_options(batch, opts).await?;
+        Ok(tx_hash)
+    }
+
+    /// Put a batch of capsules to IPFS and add the metadata to the chain, waiting for block finalization
+    pub async fn put_batch_wait_finalized<Id, Value>(
+        &self,
+        batch: CapsulesBatch<Id, Value>,
+    ) -> Result<H256>
+    where
+        Id: Encode,
+        Value: Encode,
+    {
+        let mut opts = PutCapsuleOpts::default();
+        opts.level = ConsistencyLevel::High;
+
+        let tx_hash = self.put_batch_with_options(batch, opts).await?;
+        Ok(tx_hash)
+    }
+
+    /// Put a batch of capsules to IPFS and add the metadata to the chain, waiting for block inclusion
+    pub async fn put_batch<Id, Value>(&self, batch: CapsulesBatch<Id, Value>) -> Result<H256>
+    where
+        Id: Encode,
+        Value: Encode,
+    {
+        let tx_hash = self
+            .put_batch_with_options(batch, PutCapsuleOpts::default())
+            .await?;
+        Ok(tx_hash)
+    }
+
+    pub async fn put_batch_with_options<Id, Value>(
+        &self,
+        batch: CapsulesBatch<Id, Value>,
+        options: PutCapsuleOpts,
+    ) -> Result<H256>
+    where
+        Id: Encode,
+        Value: Encode,
+    {
+        let mut calls = Calls::new();
+        let finalized_block = self.titanh.latest_finalized_block().await?.number;
+        for (id, value) in batch {
+            let runtime_call = self
+                .upload_capsule_to_ifps(id, value, &options, finalized_block)
+                .await?;
+            calls.push(runtime_call);
+        }
+
+        let tx_hash = self
+            .titanh
+            .sign_and_submit_batch(calls, options.level)
+            .await?;
         Ok(tx_hash)
     }
 
@@ -354,7 +419,13 @@ impl<'a> CapsulesApi<'a> {
         Ok(events)
     }
 
-    pub async fn upload_capsule_to_ifps<Id, Data>(&self, id: Id, data: Data) -> Result<RuntimeCall>
+    pub async fn upload_capsule_to_ifps<Id, Data>(
+        &self,
+        id: Id,
+        data: Data,
+        opts: &PutCapsuleOpts,
+        finalized_block: BlockNumber,
+    ) -> Result<RuntimeCall>
     where
         Id: Encode,
         Data: Encode,
@@ -362,18 +433,16 @@ impl<'a> CapsulesApi<'a> {
         let config = self.ensure_config()?;
 
         let (cid, size) = self.upload_to_ipfs(data).await?;
-        let (retention_blocks, followers_status, _) =
-            PutCapsuleOpts::default().unwrap_fields_or_default();
+        let (retention_blocks, _) = opts.unwrap_fields_or_default();
 
-        let ending_retention_block =
-            self.titanh.latest_finalized_block().await?.number + retention_blocks;
+        let ending_retention_block = finalized_block + retention_blocks;
 
         // Build the capsule
         let capsule = CapsuleUploadData {
             cid,
             size,
             ending_retention_block,
-            followers_status,
+            followers_status: FollowersStatus::None,
             encoded_metadata: id.encode(),
         };
 

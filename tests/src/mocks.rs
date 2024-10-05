@@ -1,8 +1,8 @@
-use std::collections::HashMap;
-
-use anyhow::Result;
 use codec::Encode;
 use sp_core::H256;
+use std::collections::HashMap;
+use std::fs::File;
+use std::io::Write;
 use titan_api::{CapsulesApi, TitanhApi};
 
 pub const CHAIN_ENDPOINT: &str = "ws://127.0.0.1:9944";
@@ -25,9 +25,12 @@ pub const SEED_PRHASE: &str =
 
 pub const APP: u32 = 1;
 
-pub const NUM_CAPSULES: usize = 50;
+pub const NUM_CAPSULES: usize = 30;
 
 pub const LEAVE_NODE_IDX: usize = 3;
+
+pub const KEYS_DIR: &str = "ring";
+pub const KEYS_LEAVE_DIR: &str = "ring-after-leave";
 
 pub struct MockRing {
     rep_factor: u32,
@@ -77,7 +80,7 @@ impl MockRing {
 }
 
 pub struct MockApi<'a> {
-    capsules: CapsulesApi<'a>,
+    pub capsules: CapsulesApi<'a>,
     ring: MockRing,
     // (node, patition_num) -> keys
     assigned_keys: HashMap<(H256, u32), Vec<H256>>,
@@ -115,50 +118,67 @@ impl<'a> MockApi<'a> {
         }
     }
 
-    pub async fn put<Id: Encode, Value: Encode>(&mut self, id: Id, value: Value) -> Result<()> {
+    pub fn assign_key_to_replicas<Id: Encode>(&mut self, id: Id) {
         let key = self.capsules.compute_capsule_id(&id, APP);
         self.keys.push(key);
 
         self.adjust_nodes_keys(&key);
-
-        // Call put on the capsules api
-        self.capsules.put_async(id, value).await?;
-
-        Ok(())
     }
 
-    pub fn display_assigned_keys(&self) {
-        for node in self.ring.ring.iter() {
-            println!("Pinning Node: {:?}", node);
+    pub fn display_assigned_keys(&self, dir_path: &str) {
+        for (idx, node) in self.ring.ring.iter().enumerate() {
+            // Build file path
+            let file_path = format!("{}/node-{:?}.txt", dir_path, idx + 1);
+
+            // Create and open the file
+            let mut file = File::create(&file_path).expect("Unable to create file");
+
+            // Write to file
+            writeln!(file, "Pinning Node: {:?}", node).unwrap();
+
             for idx in 0..self.ring.rep_factor {
-                println!(
+                writeln!(
+                    file,
                     "==============================  Keys of Row {} ==============================",
                     idx + 1
-                );
+                )
+                .unwrap();
                 let keys = self.assigned_keys.get(&(*node, idx + 1)).unwrap();
                 for key in keys {
-                    println!("{:?}", key);
+                    writeln!(file, "{:?}", key).unwrap();
                 }
+                writeln!(
+                    file,
+                    "===================================================================="
+                )
+                .unwrap();
             }
-            println!();
-            println!("====================================================================")
+            writeln!(file).unwrap();
         }
     }
 
-    pub fn display_leave_simulation(&mut self) {
+    pub fn display_leave_simulation(&mut self, dir_path: &str) {
         let leave_node = self.ring.ring.remove(LEAVE_NODE_IDX);
+
         self.assigned_keys.clear();
+        for node in self.ring.ring.iter() {
+            for idx in 0..self.ring.rep_factor {
+                self.assigned_keys.insert((*node, idx + 1), Vec::new());
+            }
+        }
 
         let keys = self.keys.clone();
         for key in keys.iter() {
             self.adjust_nodes_keys(key);
         }
-        println!(
-            "After leaving node: {:?}, the keys should be kept as follows",
-            leave_node
-        );
-        println!();
-        println!("====================================================================");
-        self.display_assigned_keys();
+
+        // Write the message to a file
+        let leave_info_path = format!("{}/leave_info.txt", dir_path);
+        let mut info_file =
+            File::create(&leave_info_path).expect("Unable to create leave_info.txt");
+
+        writeln!(info_file, "Leaving node: {:?}", leave_node).unwrap();
+
+        self.display_assigned_keys(dir_path);
     }
 }

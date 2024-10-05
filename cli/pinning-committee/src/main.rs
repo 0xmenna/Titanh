@@ -120,7 +120,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ipfs_replicas,
             pinning_nodes,
         } => {
-            let api = TitanhApiBuilder::rpc(&rpc).seed(&seed_phrase).build().await;
+            let api = TitanhApiBuilder::rpc(&rpc).seed(&seed_phrase).build().await?;
 
             let tx_hash = api
                 .pinning_committee()
@@ -139,7 +139,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let seeds_path = PathBuf::from(seeds_file);
             let ipfs_seeds = get_seeds_from_hex_file(seeds_path)?;
 
-            let api = TitanhApiBuilder::rpc(&rpc).seed(&seed_phrase).build().await;
+            let api = TitanhApiBuilder::rpc(&rpc).seed(&seed_phrase).build().await?;
 
             let tx_hash = api
                 .pinning_committee()
@@ -165,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let api = TitanhApiBuilder::rpc(&chain_rpc)
                 .seed(&seed_phrase)
                 .build()
-                .await;
+                .await?;
             let committee_api = api.pinning_committee().ipfs_seeds(ipfs_seeds)?;
 
             let node_id = committee_api.compute_pinning_node_id()?;

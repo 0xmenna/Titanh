@@ -1,13 +1,15 @@
-use std::{
-    collections::BTreeMap,
-    ops::{Deref, DerefMut},
-    vec,
-};
-
 use super::cid::Cid;
 use anyhow::Result;
 use api::capsules_types::CapsuleKey;
+use api::common_types::BlockNumber;
 use codec::{Decode, Encode};
+use std::io::Write;
+use std::{
+    collections::BTreeMap,
+    fs::OpenOptions,
+    ops::{Deref, DerefMut},
+    vec,
+};
 
 /// Maximum number of columns that can be stored in the table. Assuming a (column, value) pair is approximately 76 bytes (key=>cid), a single row can handle approximately 256 MB.
 pub const MAX_COLUMNS: u32 = 3368416;
@@ -158,14 +160,17 @@ pub struct FaultTolerantKeyTable {
     key_table: KeyTable<ColumnKey, Cid, MAX_COLUMNS>,
     rep_factor: u32,
     rows_to_flush: Vec<bool>,
+    /// The optional output file where the key table state is reported
+    out_file: Option<String>,
 }
 
 impl FaultTolerantKeyTable {
-    pub fn new(rep_factor: u32) -> Self {
+    pub fn new(rep_factor: u32, out_file: Option<String>) -> Self {
         FaultTolerantKeyTable {
             key_table: KeyTable::new(rep_factor),
             rep_factor,
             rows_to_flush: vec![false; rep_factor as usize],
+            out_file,
         }
     }
 
@@ -278,5 +283,45 @@ impl FaultTolerantKeyTable {
 
     pub fn encoded_rows(&self) -> Vec<Vec<u8>> {
         self.key_table.encoded_rows()
+    }
+
+    /// Log the key table state to the output file
+    pub fn log(&self, block_number: BlockNumber) -> Result<()> {
+        if let Some(ref out_file) = self.out_file {
+            let mut file = OpenOptions::new()
+                .create(true)
+                .append(true)
+                .open(out_file)?;
+
+            writeln!(
+                file,
+                "================== Key Table at Block {} ==================",
+                block_number
+            )?;
+
+            for (i, row) in self.key_table.0.iter().enumerate() {
+                writeln!(
+                    file,
+                    "==============================  Keys of Row {} ==============================",
+                    i + 1
+                )?;
+
+                for key in row.keys() {
+                    writeln!(file, "{:?}", key)?;
+                }
+
+                writeln!(
+                    file,
+                    "==================================================================="
+                )?;
+            }
+
+            writeln!(
+                file,
+                "================== End of Key Table at Block {} ==================\n",
+                block_number
+            )?;
+        }
+        Ok(())
     }
 }

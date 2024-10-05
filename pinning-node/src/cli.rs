@@ -20,10 +20,18 @@ impl Cli {
                 rpc,
                 retries,
                 ipfs_peers_config,
+                keytable_file,
             } => {
                 let peers_config = PeersConfig::from_json(&ipfs_peers_config);
 
-                Config::new(seed, idx, rpc, retries, peers_config.ipfs_peers)
+                Config::new(
+                    seed,
+                    idx,
+                    rpc,
+                    retries,
+                    peers_config.ipfs_peers,
+                    keytable_file,
+                )
             }
         }
     }
@@ -48,5 +56,8 @@ enum Commands {
         /// The path of the json file containing the ipfs peers bounded to the pinning node
         #[arg(short, long)]
         ipfs_peers_config: String,
+        /// The optional path to the file where the node keytable will be logged
+        #[arg(short, long)]
+        keytable_file: Option<String>,
     },
 }

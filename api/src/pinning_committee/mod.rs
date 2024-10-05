@@ -80,7 +80,7 @@ impl PinningCommitteeApi<'_> {
 
         let tx_hash = self
             .titanh
-            .sing_and_submit_batch(calls, ConsistencyLevel::High)
+            .sign_and_submit_batch(calls, ConsistencyLevel::High)
             .await?;
 
         Ok(tx_hash)
@@ -97,7 +97,7 @@ impl PinningCommitteeApi<'_> {
 
             let tx_hash = self
                 .titanh
-                .sing_and_submit_batch(calls, ConsistencyLevel::High)
+                .sign_and_submit_batch(calls, ConsistencyLevel::High)
                 .await?;
 
             Ok(tx_hash)

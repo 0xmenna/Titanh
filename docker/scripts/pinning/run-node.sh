@@ -3,7 +3,6 @@
 
 set -e
 
-
 error_exit() {
     echo "$1" >&2
     exit 1
@@ -46,6 +45,7 @@ RUST_LOG="$LOG_LEVEL" "$PINNING_NODE_PATH" start \
     --idx "$NODE_IDX" \
     --rpc "$CHAIN_RPC" \
     --retries "$FAILURE_RETRY" \
-    --ipfs-peers-config "$IPFS_PUBKEYS_PATH" > "$HOME/virtual_$NODE_IDX/pinning.log" 2>&1 &
+    --ipfs-peers-config "$IPFS_PUBKEYS_PATH" \
+    --keytable-file "$HOME/virtual_$NODE_IDX/keytable.log" > "$HOME/virtual_$NODE_IDX/pinning.log" 2>&1 &
 
 echo "PID $!" > "$HOME/virtual_$NODE_IDX/pid"
