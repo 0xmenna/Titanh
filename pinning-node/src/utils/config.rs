@@ -37,6 +37,8 @@ pub struct Config {
     pub ipfs_peers: Vec<IpfsPeer>,
     /// The number of retries for a failed pinning operation
     pub failure_retry: u8,
+    /// The ring replication factor
+    pub rep_factor: u32,
     /// The optional path to the file where the node keytable will be logged
     pub keytable_file: Option<String>,
 }
@@ -49,6 +51,7 @@ impl Config {
         chain_node_endpoint: String,
         failure_retry: u8,
         ipfs_peers: Vec<IpfsPeer>,
+        rep_factor: u32,
         keytable_file: Option<String>,
     ) -> Self {
         Self {
@@ -57,6 +60,7 @@ impl Config {
             chain_node_endpoint,
             ipfs_peers,
             failure_retry,
+            rep_factor,
             keytable_file,
         }
     }

@@ -46,6 +46,7 @@ RUST_LOG="$LOG_LEVEL" "$PINNING_NODE_PATH" start \
     --rpc "$CHAIN_RPC" \
     --retries "$FAILURE_RETRY" \
     --ipfs-peers-config "$IPFS_PUBKEYS_PATH" \
+    --rep-factor "$REPLICATION_FACTOR" \
     --keytable-file "$HOME/virtual_$NODE_IDX/keytable.log" > "$HOME/virtual_$NODE_IDX/pinning.log" 2>&1 &
 
 echo "PID $!" > "$HOME/virtual_$NODE_IDX/pid"

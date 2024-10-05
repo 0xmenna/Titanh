@@ -20,6 +20,7 @@ impl Cli {
                 rpc,
                 retries,
                 ipfs_peers_config,
+                rep_factor,
                 keytable_file,
             } => {
                 let peers_config = PeersConfig::from_json(&ipfs_peers_config);
@@ -30,6 +31,7 @@ impl Cli {
                     rpc,
                     retries,
                     peers_config.ipfs_peers,
+                    rep_factor,
                     keytable_file,
                 )
             }
@@ -56,6 +58,9 @@ enum Commands {
         /// The path of the json file containing the ipfs peers bounded to the pinning node
         #[arg(short, long)]
         ipfs_peers_config: String,
+        /// The ring replication factor
+        #[arg(short, long)]
+        rep_factor: u32,
         /// The optional path to the file where the node keytable will be logged
         #[arg(short, long)]
         keytable_file: Option<String>,

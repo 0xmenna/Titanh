@@ -31,13 +31,6 @@ impl NodeEvent {
         }))
     }
 
-    pub fn is_committee_event(&self) -> bool {
-        match self {
-            NodeEvent::NodeRegistration(_) | NodeEvent::NodeRemoval { .. } => true,
-            _ => false,
-        }
-    }
-
     pub fn pinning_event(self) -> Option<KeyedPinningEvent> {
         match self {
             NodeEvent::Pinning(event) => Some(event),

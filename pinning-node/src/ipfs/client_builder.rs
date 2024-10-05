@@ -1,7 +1,6 @@
 use super::client::IpfsClient;
-use crate::utils::{config::Config, traits::ClientBuilder};
+use crate::utils::config::Config;
 use anyhow::Result;
-use async_trait::async_trait;
 use ipfs_api_backend_hyper::{IpfsClient as ApiIpfsClient, TryFromUri};
 
 pub struct IpfsConfig<'a> {
@@ -24,14 +23,13 @@ pub struct IpfsClientBuilder<'a> {
 
 const MAX_REPLICAS: usize = 10;
 
-#[async_trait]
-impl<'a> ClientBuilder<'a, Result<IpfsClient>> for IpfsClientBuilder<'a> {
-    fn from_config(config: &'a Config) -> Self {
+impl<'a> IpfsClientBuilder<'a> {
+    pub fn from_config(config: &'a Config) -> Self {
         let config = IpfsConfig::from(config);
         Self { config }
     }
 
-    async fn build(self) -> Result<IpfsClient> {
+    pub async fn build(self) -> Result<IpfsClient> {
         let replicas: Result<Vec<ApiIpfsClient>, _> = self
             .config
             .rpc_replicas

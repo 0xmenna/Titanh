@@ -110,12 +110,6 @@ pub async fn produce_recover_events(
     lastest_finalized_block: BlockNumber,
     ring_height: BlockNumber,
 ) -> Result<()> {
-    println!("ring_height: {}", ring_height);
-    assert!(
-        start_block_recovering <= ring_height && ring_height <= lastest_finalized_block,
-        "Block ranges are invalid for event recovery"
-    );
-
     let api = client.api();
 
     if start_block_recovering == 1 {

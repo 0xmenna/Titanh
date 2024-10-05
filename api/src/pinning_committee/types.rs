@@ -139,12 +139,8 @@ impl PinningRing {
             replica_nodes.extend_from_slice(&self.ring[0..diff]);
         }
 
-        let partition_idx = replica_nodes.binary_search(&node_id);
-
-        match partition_idx {
-            Ok(idx) => Ok(Some(idx)),
-            Err(_) => Ok(None),
-        }
+        let partition_idx = replica_nodes.iter().position(|&node| node == node_id);
+        Ok(partition_idx)
     }
 
     /// Get the node at the given index, it panics if the index is out of bounds

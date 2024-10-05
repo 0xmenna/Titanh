@@ -38,10 +38,6 @@ impl SubstrateClient {
         for event_record in runtime_events.into_iter() {
             let node_event = events::try_event_from_runtime(event_record.event);
             if let Some(event) = node_event {
-                if event.is_committee_event() && self.block.number >= block.number {
-                    // The client has been initialized at a later block, so we ignore if the event is a committee event (join or leave). This is because the node boudend to the client has a most up to date ring.
-                    continue;
-                }
                 batch.insert(event);
             }
         }
@@ -58,7 +54,7 @@ impl SubstrateClient {
         start: BlockNumber,
         end: BlockNumber,
     ) -> Result<Batch<NodeEvent>> {
-        let mut batch = Batch::default();
+        let mut batch: Batch<NodeEvent> = Batch::default();
 
         for block_number in start..=end {
             let block = BlockInfo {

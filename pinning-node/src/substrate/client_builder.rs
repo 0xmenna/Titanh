@@ -1,11 +1,7 @@
 use super::client::SubstrateClient;
-use crate::{
-    db::checkpointing::DbCheckpoint,
-    utils::{config::Config, traits::ClientBuilder},
-};
+use crate::{db::checkpointing::DbCheckpoint, utils::config::Config};
 use anyhow::Result;
 use api::{common_types::BlockInfo, pinning_committee_types::NodeId, TitanhApiBuilder};
-use async_trait::async_trait;
 
 pub struct SubstratePinningConfig<'a> {
     /// The node id of the pinning node
@@ -31,25 +27,23 @@ impl<'a> From<&'a Config> for SubstratePinningConfig<'a> {
 
 pub struct SubstrateClientBuilder<'a> {
     config: SubstratePinningConfig<'a>,
+    db: &'a DbCheckpoint,
 }
 
-#[async_trait]
-impl<'a> ClientBuilder<'a, Result<SubstrateClient>> for SubstrateClientBuilder<'a> {
-    fn from_config(config: &'a Config) -> Self {
+impl<'a> SubstrateClientBuilder<'a> {
+    pub fn from_config(config: &'a Config, db: &'a DbCheckpoint) -> Self {
         let config = SubstratePinningConfig::from(config);
-        Self { config }
+        Self { config, db }
     }
 
-    async fn build(self) -> Result<SubstrateClient> {
+    pub async fn build(self) -> Result<SubstrateClient> {
         let api = TitanhApiBuilder::rpc(&self.config.rpc_url)
             .seed(&self.config.seed_phrase)
             .build()
             .await?;
 
-        let maybe_block_num = DbCheckpoint::get_blocknumber_from_db_node(
-            self.config.virtual_node_idx,
-            self.config.node_id,
-        );
+        let maybe_block_num = self.db.read_blocknumber()?;
+
         let block = if let Some(block_num) = maybe_block_num {
             let hash = api.block_hash(block_num).await.unwrap();
             BlockInfo::new(block_num, hash)

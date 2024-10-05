@@ -5,7 +5,6 @@ use crate::{
     ipfs::client_builder::IpfsClientBuilder,
     substrate::client_builder::SubstrateClientBuilder,
     types::events_pool::NodeEventsPool,
-    utils::traits::ClientBuilder,
 };
 use anyhow::Result;
 
@@ -20,29 +19,28 @@ pub struct PinningNodeController {
 impl PinningNodeController {
     pub async fn bootstrap() -> Result<Self> {
         let config = Cli::parse_config();
+        // Node checkpointing db
+        let db = DbCheckpoint::from_config(
+            config.rep_factor,
+            config.node_id(),
+            config.idx,
+            config.keytable_file.clone(),
+        );
+        let checkpoint = db.get_checkpoint()?;
+        log::info!("Checkpoint is at block number: {}", checkpoint.height());
+        // Block number until which the node has processed events and has an up to date keytable.
+        let checkpoint_height = checkpoint.height();
+
         // Build the substrate client to read the blockchain related data
-        let sub_client = SubstrateClientBuilder::from_config(&config).build().await?;
+        let sub_client = SubstrateClientBuilder::from_config(&config, &db)
+            .build()
+            .await?;
         log::info!(
             "Substrate client initialized at block number: {}, with ID: {}",
             sub_client.height(),
             hex::encode(sub_client.node_id())
         );
-
         let ring = sub_client.ring().await;
-        let replication_factor = ring.replication();
-
-        // Node checkpointing db
-        let db = DbCheckpoint::from_config(
-            replication_factor,
-            config.node_id(),
-            config.idx,
-            config.keytable_file.clone(),
-        );
-        let checkpoint = db.get_checkpoint().unwrap();
-        log::info!("Checkpoint is at block number: {}", checkpoint.height());
-        // Block number until which the node has processed events.
-        // The keytable is updated at this block number.
-        let checkpoint_height = checkpoint.height();
 
         let sub_client = sub_client.arc();
         let events_pool = NodeEventsPool::new().mutable_ref();

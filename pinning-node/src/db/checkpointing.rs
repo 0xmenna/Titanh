@@ -58,17 +58,10 @@ impl DbCheckpoint {
         sled::open(db_name).unwrap()
     }
 
-    // This is unbounded to the struct instance because we still don't know the `rep_factor`, since it's a value fetched remotely, based on the block number, this is why we read this first.
-    pub fn get_blocknumber_from_db_node(idx: u32, node_id: NodeId) -> Option<BlockNumber> {
-        let db = Self::open_db_from_node(idx, node_id);
-        let block_num = Self::read_blocknumber(&db).expect("Failed to retrieve block");
-
-        block_num
-    }
-
     /// Retrieves some checkpoint value from the database.
-    fn read_checkpoint_value<D: Decode>(db: &Db, key: &str) -> Result<Option<D>> {
-        let checkpoint = db
+    fn read_checkpoint_value<D: Decode>(&self, key: &str) -> Result<Option<D>> {
+        let checkpoint = self
+            .db
             .get(key.as_bytes())
             .map_err(|_| anyhow::anyhow!("Failed to read checkpoint from db"))?;
 
@@ -89,14 +82,14 @@ impl DbCheckpoint {
             FaultTolerantKeyTable::new(self.rep_factor, self.keytable_out_file.clone());
         for idx in 0..self.rep_factor {
             let key = format!("partition_{}", idx);
-            let row = Self::read_checkpoint_value::<TableRow>(&self.db, &key)?;
+            let row = self.read_checkpoint_value::<TableRow>(&key)?;
 
             if let Some(row) = row {
                 keytable.mutable_table().add_row(row);
             }
         }
 
-        let block_num = Self::read_blocknumber(&self.db)?.unwrap_or_default();
+        let block_num = self.read_blocknumber()?.unwrap_or_default();
 
         Ok(Checkpoint::new(block_num, keytable))
     }
@@ -116,8 +109,8 @@ impl DbCheckpoint {
         Ok(())
     }
 
-    fn read_blocknumber(db: &Db) -> Result<Option<BlockNumber>> {
-        let block_num = Self::read_checkpoint_value::<BlockNumber>(db, BLOCK_NUM_KEY)?;
+    pub fn read_blocknumber(&self) -> Result<Option<BlockNumber>> {
+        let block_num = self.read_checkpoint_value::<BlockNumber>(BLOCK_NUM_KEY)?;
 
         Ok(block_num)
     }
