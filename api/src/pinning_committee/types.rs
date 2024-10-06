@@ -73,24 +73,29 @@ impl PinningRing {
         }
     }
 
-    /// Returns the distance between a node and an index in the ring
+    /// Returns the distance of node_id relative to node at `idx` in the ring considering clockwise direction.
     pub fn distance_from_idx(&self, idx: usize, node_id: &NodeId) -> Result<u32> {
         let node_idx = self.node(node_id)?;
-        let max_idx = idx.max(node_idx);
-        let min_idx = idx.min(node_idx);
+        let total_nodes = self.len();
 
-        Ok((max_idx - min_idx) as u32)
+        if idx >= node_idx {
+            Ok((idx - node_idx) as u32)
+        } else {
+            Ok((total_nodes - idx + node_idx) as u32)
+        }
     }
 
-    /// Returns the distance between two nodes in the ring
+    /// Returns the distance of `node_a` relative to `node_b` in the ring considering clockwise direction.
     pub fn distance_between(&self, node_a: &NodeId, node_b: &NodeId) -> Result<u32> {
         let idx_a = self.node(node_a)?;
         let idx_b = self.node(node_b)?;
+        let total_nodes = self.len();
 
-        let max_idx = idx_a.max(idx_b);
-        let min_idx = idx_a.min(idx_b);
-
-        Ok((max_idx - min_idx) as u32)
+        if idx_b >= idx_a {
+            Ok((idx_b - idx_a) as u32)
+        } else {
+            Ok((total_nodes - idx_b + idx_a) as u32)
+        }
     }
 
     /// Looks for the closest node in the ring given a `target_key`
@@ -121,8 +126,7 @@ impl PinningRing {
         }
     }
 
-    /// Returns the number of the partition to which the key belongs, if the key must be handled by the input node in the ring.
-    /// It can also return an error if the ring is empty
+    /// Returns the index of the partition to which the key belongs, if the key must be handled by the input node in the ring.
     pub fn key_node_partition(&self, key: CapsuleKey, node_id: NodeId) -> Result<Option<usize>> {
         // The closest node to `key`
         let next_node_idx = self.binary_search_closest_node(key)?;

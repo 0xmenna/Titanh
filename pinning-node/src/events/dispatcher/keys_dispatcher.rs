@@ -67,7 +67,7 @@ impl MutableDispatcher<JoinNodeEvent, ()> for KeysDispatcher {
     fn dispatch(&mut self, node: JoinNodeEvent) -> Result<()> {
         // Insert the node and retrieve its position in the ring
         let idx = self.ring.insert_node(&node)?;
-        // Get the distance of `self` with respect to the new node
+        // Get the distance of `self` with respect to the new node at `idx`
         let dist = self.ring.distance_from_idx(idx, &self.client.node_id())?;
         if dist <= self.ring.replication() {
             // The pinning node is impacted by the join, so it should drop some keys.
