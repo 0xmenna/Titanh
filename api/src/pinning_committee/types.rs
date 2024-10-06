@@ -127,10 +127,14 @@ impl PinningRing {
     }
 
     /// Returns the index of the partition to which the key belongs, if the key must be handled by the input node in the ring.
+    /// key: 0x9ff
+    /// node_id: 0xe041
     pub fn key_node_partition(&self, key: CapsuleKey, node_id: NodeId) -> Result<Option<usize>> {
         // The closest node to `key`
         let next_node_idx = self.binary_search_closest_node(key)?;
-
+        println!("Key:{:?}", key);
+        // quando la chiave è 0x9ff stampa 3.
+        println!("Node ID: {:?}", next_node_idx);
         let ring_size = self.ring.len();
         let sum = next_node_idx + self.replication_factor as usize;
 

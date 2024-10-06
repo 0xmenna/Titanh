@@ -23,11 +23,7 @@ for instance in "$@"; do
         # Check if the PID is a valid number
         if [[ "$PID" =~ ^[0-9]+$ ]]; then
             echo "Killing process with PID $PID from virtual_$instance"
-            kill "$PID"  # Send SIGTERM to the process
-            
-            # Optionally, you can wait for the process to terminate
-            wait "$PID" 2>/dev/null
-
+            kill -TERM $PID
             # Optionally, remove the PID file after killing the process
             rm -f "$PID_FILE"
         else
