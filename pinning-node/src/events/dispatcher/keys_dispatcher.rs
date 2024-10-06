@@ -5,7 +5,7 @@ use crate::{
         batch::Batch,
         cid::Cid,
         events::{JoinNodeEvent, KeyedPinningEvent, LeaveNodeEventAt, PinningEvent},
-        keytable::FaultTolerantKeyTable,
+        keytable::{FaultTolerantKeyTable, TableRow},
     },
     utils::ref_builder::AtomicRef,
 };
@@ -63,22 +63,26 @@ impl MutableDispatcher<KeyedPinningEvent, Option<PinningEvent>> for KeysDispatch
 }
 
 /// Dispatcher for processing a node join event
-impl MutableDispatcher<JoinNodeEvent, ()> for KeysDispatcher {
-    fn dispatch(&mut self, node: JoinNodeEvent) -> Result<()> {
+impl MutableDispatcher<JoinNodeEvent, Option<TableRow>> for KeysDispatcher {
+    fn dispatch(&mut self, node: JoinNodeEvent) -> Result<Option<TableRow>> {
         // Insert the node and retrieve its position in the ring
         let idx = self.ring.insert_node(&node)?;
         // Get the distance of `self` with respect to the new node at `idx`
         let dist = self.ring.distance_from_idx(idx, &self.client.node_id())?;
-        if dist <= self.ring.replication() {
+        let rm_row = if dist <= self.ring.replication() {
             // The pinning node is impacted by the join, so it should drop some keys.
             // First, the node selects which row must me partitioned in two.
             // Then, it puts the new row resulting from the partitioning to the first position, and shifts the other rows, by also deleting the last one.
             let row_idx = dist as usize - 1;
             let partition_barrier = node;
-            self.keytable.partition_row(row_idx, &partition_barrier)?;
-        }
+            let rm_row = self.keytable.partition_row(row_idx, &partition_barrier)?;
 
-        Ok(())
+            Some(rm_row)
+        } else {
+            None
+        };
+
+        Ok(rm_row)
     }
 }
 

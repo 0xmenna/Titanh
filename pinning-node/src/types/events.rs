@@ -63,6 +63,8 @@ pub type JoinNodeEvent = NodeId;
 
 pub type BlockBarrierEvent = BlockNumber;
 
+pub type UnpinningEvent = TableRow;
+
 #[derive(Clone, Debug)]
 pub struct LeaveNodeEvent {
     node: NodeId,

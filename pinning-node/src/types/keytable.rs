@@ -102,12 +102,20 @@ where
         Ok(())
     }
 
-    fn put_front(&mut self, row: Row<C, V, S>) {
+    fn put_at_idx(&mut self, row: Row<C, V, S>, idx: usize) -> Result<Option<Row<C, V, S>>> {
+        if idx >= self.0.len() {
+            return Err(anyhow::anyhow!("Row number out of bounds"));
+        };
         let rows_num = self.0.len();
-        if rows_num == self.0.capacity() {
-            self.0.remove(rows_num - 1);
-        }
-        self.0.insert(0, row);
+        let rm_row = if rows_num == self.0.capacity() {
+            let rm_row = self.0.remove(rows_num - 1);
+            Some(rm_row)
+        } else {
+            None
+        };
+        self.0.insert(idx, row);
+
+        Ok(rm_row)
     }
 
     pub fn remove(&mut self, row_idx: usize, column_key: &C) -> Result<Option<V>> {
@@ -174,7 +182,8 @@ impl FaultTolerantKeyTable {
         }
     }
 
-    pub fn partition_row(&mut self, row_idx: usize, barrier_key: &ColumnKey) -> Result<()> {
+    /// It partitions the row at the given index, using the barrier key as the split point. It returns the row that has been removed from the table.
+    pub fn partition_row(&mut self, row_idx: usize, barrier_key: &ColumnKey) -> Result<TableRow> {
         let row = self.key_table.mutable_row(row_idx)?;
         let mut new_row = row.split_off(barrier_key);
         // since `split_off` includes the barrier key in the new row, we need to swap it with the original row
@@ -187,11 +196,11 @@ impl FaultTolerantKeyTable {
         let new_row = new_row.try_into().unwrap();
 
         // We need to shift existing rows to the right to make space for the new row and remove the last row (if any). Insertion at front is O(n), but since we assume the number of rows is not large, it is acceptable.
-        self.key_table.put_front(new_row);
+        let rm_row = self.key_table.put_at_idx(new_row, row_idx)?.expect("It is always expected to have a row to remove. If there are no elements it's just an empty row");
 
         self.rows_to_flush.fill(true);
 
-        Ok(())
+        Ok(rm_row)
     }
 
     pub fn merge_rows_from(&mut self, row_idx: usize) -> Result<()> {

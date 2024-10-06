@@ -20,16 +20,11 @@ impl PinningNodeController {
     pub async fn bootstrap() -> Result<Self> {
         let config = Cli::parse_config();
         // Node checkpointing db
-        let db = DbCheckpoint::from_config(
-            config.rep_factor,
-            config.node_id(),
-            config.idx,
-            config.keytable_file.clone(),
-        );
+        let db = DbCheckpoint::from_config(&config);
         let checkpoint = db.get_checkpoint()?;
-        log::info!("Checkpoint is at block number: {}", checkpoint.height());
         // Block number until which the node has processed events and has an up to date keytable.
         let checkpoint_height = checkpoint.height();
+        log::info!("Checkpoint is at block number: {}", checkpoint_height);
 
         // Build the substrate client to read the blockchain related data
         let sub_client = SubstrateClientBuilder::from_config(&config, &db)

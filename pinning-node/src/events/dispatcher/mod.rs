@@ -73,7 +73,12 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                         "Dispatching node registration event. New node ID{:?}",
                         node_id
                     );
-                    self.keys.dispatch(node_id)?;
+                    // Removes the keys that will be handled by the new node (if any)
+                    let rm_row = self.keys.dispatch(node_id)?;
+                    if let Some(unpinning_event) = rm_row {
+                        // unpin the cids in the removed row
+                        self.pinning.async_dispatch(unpinning_event).await.unwrap()
+                    }
                     log::info!("Node registration event dispatched successfully");
                 }
                 // Node removal event
@@ -84,6 +89,7 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                     // Dispatch the leave event and get the CID that locates the row to be transferred
                     let res = self.keys.async_dispatch(leaved_event_at).await?;
                     if let Some((cid, batch)) = res {
+                        println!("CID of row to recover: {:?}", cid);
                         let mut transferred_row = self.pinning.async_dispatch((cid, batch)).await?;
                         // Update the table with the row fetched from IPFS
                         self.keys

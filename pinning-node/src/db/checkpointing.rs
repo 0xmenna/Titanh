@@ -1,4 +1,7 @@
-use crate::types::keytable::{FaultTolerantKeyTable, TableRow};
+use crate::{
+    types::keytable::{FaultTolerantKeyTable, TableRow},
+    utils::config::Config,
+};
 use anyhow::Result;
 use api::{common_types::BlockNumber, pinning_committee_types::NodeId};
 use codec::{Decode, Encode};
@@ -36,18 +39,13 @@ pub struct DbCheckpoint {
 }
 
 impl DbCheckpoint {
-    pub fn from_config(
-        rep_factor: u32,
-        node_id: NodeId,
-        virtual_node_idx: u32,
-        keytable_out_file: Option<String>,
-    ) -> Self {
+    pub fn from_config(config: &Config) -> Self {
         // Open database
-        let db = Self::open_db_from_node(virtual_node_idx, node_id);
+        let db = Self::open_db_from_node(config.idx, config.node_id());
         Self {
             db,
-            rep_factor,
-            keytable_out_file,
+            rep_factor: config.rep_factor,
+            keytable_out_file: config.keytable_file.clone(),
         }
     }
 

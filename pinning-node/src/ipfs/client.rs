@@ -5,29 +5,33 @@ use ipfs_api_backend_hyper::Error as IpfsError;
 use ipfs_api_backend_hyper::{IpfsApi, IpfsClient as ApiIpfsClient};
 use rand::rngs::SmallRng as Randomness;
 use rand::{Rng, SeedableRng};
+use std::collections::HashMap;
 use std::future::Future;
 
 pub struct IpfsClient {
-    /// The IPFS client replicas
-    replicas: Vec<ApiIpfsClient>,
+    /// The IPFS clients
+    clients: Vec<ApiIpfsClient>,
     /// The number of retries for pinning operations
     failure_retry: u8,
     /// The random number generator used for selecting a random replica
     rng: Randomness,
+    /// The ipfs client idx that is currently pinning a cid
+    pinning_client: HashMap<Cid, usize>,
 }
 
 impl IpfsClient {
-    pub fn new(replicas: Vec<ApiIpfsClient>, failure_retry: u8) -> Self {
+    pub fn new(ipfs_clients: Vec<ApiIpfsClient>, failure_retry: u8) -> Self {
         let rng = Randomness::from_entropy();
         Self {
-            replicas,
+            clients: ipfs_clients,
             failure_retry,
             rng,
+            pinning_client: HashMap::new(),
         }
     }
 
     pub async fn get(&mut self, cid: Cid) -> Result<Vec<u8>> {
-        let client = self.select_client();
+        let (_, client) = self.select_client();
         let response = client
             .cat(cid.as_ref())
             .map_ok(|chunk| chunk.to_vec())
@@ -40,18 +44,19 @@ impl IpfsClient {
 
     // Add a pin
     pub async fn pin_add(&mut self, cid: &Cid) {
-        self.pinning_op(cid, PinOp::Add).await
+        self.pinning_op(cid, PinOp::Add).await.unwrap();
     }
 
     // Remove a pin
-    pub async fn pin_remove(&mut self, cid: &Cid) {
+    pub async fn pin_remove(&mut self, cid: &Cid) -> Result<()> {
         self.pinning_op(cid, PinOp::Remove).await
     }
 
-    // Select a random client from the replicas.
-    fn select_client(&mut self) -> &ApiIpfsClient {
-        let idx = self.rng.gen_range(0..self.replicas.len());
-        &self.replicas[idx]
+    // Select a random ipfs client from the available nodes.
+    fn select_client(&mut self) -> (usize, &ApiIpfsClient) {
+        let idx = self.rng.gen_range(0..self.clients.len());
+        let node = &self.clients[idx];
+        (idx, node)
     }
 
     async fn handle_pin_op<F, Fut, R>(op: F) -> Result<()>
@@ -79,21 +84,36 @@ impl IpfsClient {
     }
 
     // Pinning operation. If the operation fails, retry it up to `failure_retry` times
-    async fn pinning_op(&mut self, cid: &Cid, op: PinOp) {
-        for _ in 0..self.failure_retry {
-            let client = self.select_client();
-            let response = match op {
-                PinOp::Add => Self::handle_pin_op(|| client.pin_add(cid.as_ref(), true)).await,
-                PinOp::Remove => Self::handle_pin_op(|| client.pin_rm(cid.as_ref(), true)).await,
-            };
+    async fn pinning_op(&mut self, cid: &Cid, op: PinOp) -> Result<()> {
+        match op {
+            PinOp::Add => {
+                for _ in 0..self.failure_retry {
+                    let (client_idx, client) = self.select_client();
+                    let res = Self::handle_pin_op(|| client.pin_add(cid.as_ref(), true)).await;
 
-            if let Ok(_) = response {
-                break;
+                    if res.is_ok() {
+                        self.pinning_client.insert(cid.clone(), client_idx);
+                        break;
+                    }
+                }
+            }
+            PinOp::Remove => {
+                let client_idx = self.pinning_client.get(&cid);
+                if let Some(client_idx) = client_idx {
+                    let client = &self.clients[*client_idx];
+                    // If the client is offline and is not able to remove the pin, ignore the error
+                    let _ = Self::handle_pin_op(|| client.pin_rm(cid.as_ref(), true)).await;
+                } else {
+                    return Err(anyhow::anyhow!("No client is pinning the cid"));
+                }
             }
         }
+
+        Ok(())
     }
 }
 
+#[derive(PartialEq, Eq)]
 enum PinOp {
     Add,
     Remove,

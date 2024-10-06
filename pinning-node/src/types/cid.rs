@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 
-#[derive(Clone, Encode, Decode, Debug)]
+#[derive(Clone, Encode, Decode, Debug, PartialEq, Eq, Hash)]
 pub struct Cid(String);
 
 impl TryFrom<Vec<u8>> for Cid {

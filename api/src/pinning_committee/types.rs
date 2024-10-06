@@ -73,15 +73,15 @@ impl PinningRing {
         }
     }
 
-    /// Returns the distance of node_id relative to node at `idx` in the ring considering clockwise direction.
-    pub fn distance_from_idx(&self, idx: usize, node_id: &NodeId) -> Result<u32> {
+    /// Returns the distance of node_id relative to node at `other_idx` in the ring considering clockwise direction.
+    pub fn distance_from_idx(&self, other_idx: usize, node_id: &NodeId) -> Result<u32> {
         let node_idx = self.node(node_id)?;
         let total_nodes = self.len();
 
-        if idx >= node_idx {
-            Ok((idx - node_idx) as u32)
+        if other_idx <= node_idx {
+            Ok((node_idx - other_idx) as u32)
         } else {
-            Ok((total_nodes - idx + node_idx) as u32)
+            Ok((total_nodes - other_idx + node_idx) as u32)
         }
     }
 
@@ -91,8 +91,8 @@ impl PinningRing {
         let idx_b = self.node(node_b)?;
         let total_nodes = self.len();
 
-        if idx_b >= idx_a {
-            Ok((idx_b - idx_a) as u32)
+        if idx_b <= idx_a {
+            Ok((idx_a - idx_b) as u32)
         } else {
             Ok((total_nodes - idx_b + idx_a) as u32)
         }
@@ -127,14 +127,9 @@ impl PinningRing {
     }
 
     /// Returns the index of the partition to which the key belongs, if the key must be handled by the input node in the ring.
-    /// key: 0x9ff
-    /// node_id: 0xe041
     pub fn key_node_partition(&self, key: CapsuleKey, node_id: NodeId) -> Result<Option<usize>> {
         // The closest node to `key`
         let next_node_idx = self.binary_search_closest_node(key)?;
-        println!("Key:{:?}", key);
-        // quando la chiave è 0x9ff stampa 3.
-        println!("Node ID: {:?}", next_node_idx);
         let ring_size = self.ring.len();
         let sum = next_node_idx + self.replication_factor as usize;
 
