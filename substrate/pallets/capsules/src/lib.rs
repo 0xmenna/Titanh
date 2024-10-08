@@ -7,6 +7,13 @@ mod capsule;
 mod container;
 mod impl_utils;
 mod types;
+pub mod weights;
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking;
+
+#[cfg(test)]
+mod tests;
 
 pub use pallet::*;
 
@@ -19,7 +26,6 @@ pub use types::*;
 #[frame_support::pallet]
 pub mod pallet {
     use core::fmt::Debug;
-
     // Import various useful types required by all FRAME pallets.
     use super::*;
     use capsule::CapsuleIdFor;
@@ -31,6 +37,7 @@ pub mod pallet {
     };
     use frame_system::pallet_prelude::*;
     use pallet_app_registrar::PermissionsApp;
+    use weights::WeightInfo;
 
     // The `Pallet` struct serves as a placeholder to implement traits, methods and dispatchables
     // (`Call`s) in this pallet.
@@ -74,6 +81,8 @@ pub mod pallet {
         /// The IPFS CID length
         #[pallet::constant]
         type CidLength: Get<u32> + Clone;
+        /// Type representing the weight of this pallet
+        type WeightInfo: WeightInfo;
     }
 
     /// Capsules that wrap an IPFS CID
@@ -302,7 +311,7 @@ pub mod pallet {
         /// This can be implemented in future versions.
         ///
         #[pallet::call_index(0)]
-        #[pallet::weight(Weight::from_parts(100_000, 0))]
+        #[pallet::weight(T::WeightInfo::upload_capsule())]
         pub fn upload_capsule(
             origin: OriginFor<T>,
             app: AppIdFor<T>,

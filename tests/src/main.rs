@@ -16,7 +16,7 @@ async fn main() -> Result<()> {
 
     let mut mock_api = MockApi::mock_from_api(&api);
 
-    let data = String::from("This is just some tesing data to upload to IPFS: ");
+    let data = String::from("This is just some testing data to upload to IPFS: ");
 
     let mut batch = CapsulesBatch::new();
     for i in 0..NUM_CAPSULES {

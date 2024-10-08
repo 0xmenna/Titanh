@@ -1,6 +1,7 @@
 use super::titanh;
 use anyhow::Result;
 use codec::{Decode, Encode};
+use serde::{Deserialize, Serialize};
 use sp_core::H256;
 use subxt::backend::legacy::LegacyRpcMethods;
 use subxt::blocks::ExtrinsicEvents;
@@ -70,7 +71,7 @@ impl User {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ConsistencyLevel {
     // This level of consistency reflects an eventual consistency model => Transaction is valid and included in the transaction pool. Not yet processed in a block.
     Low,
@@ -79,4 +80,26 @@ pub enum ConsistencyLevel {
     Medium,
     // This level is the highest level of consistency. Transaction is included in a block and the block is finalized. All transactions in the block are ordered and irreversible. At the finalized state, everyone sees the same order of transactions and the latest write to the chain state.
     High,
+}
+
+impl ConsistencyLevel {
+    pub fn to_string(&self) -> String {
+        match self {
+            ConsistencyLevel::Low => "Low".to_string(),
+            ConsistencyLevel::Medium => "Medium".to_string(),
+            ConsistencyLevel::High => "High".to_string(),
+        }
+    }
+}
+
+impl ConsistencyLevel {
+    pub fn iter() -> impl Iterator<Item = ConsistencyLevel> {
+        [
+            ConsistencyLevel::Low,
+            ConsistencyLevel::Medium,
+            ConsistencyLevel::High,
+        ]
+        .iter()
+        .copied()
+    }
 }

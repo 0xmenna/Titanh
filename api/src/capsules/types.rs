@@ -6,6 +6,7 @@ pub type CapsuleKey = H256;
 
 const DEFAULT_CAPSULE_RETENTION_BLOCKS: u32 = 864_000; // 1 month
 
+#[derive(Clone)]
 pub struct PutCapsuleOpts {
     pub retention_blocks: Option<u32>,
     pub level: ConsistencyLevel,
@@ -30,9 +31,36 @@ impl PutCapsuleOpts {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct GetCapsuleOpts {
     pub from_finalized_state: bool,
+}
+
+impl GetCapsuleOpts {
+    pub fn iter() -> impl Iterator<Item = GetCapsuleOpts> {
+        [
+            GetCapsuleOpts {
+                from_finalized_state: false,
+            },
+            GetCapsuleOpts {
+                from_finalized_state: true,
+            },
+        ]
+        .iter()
+        .copied()
+    }
+}
+
+impl From<GetCapsuleOpts> for ConsistencyLevel {
+    fn from(opts: GetCapsuleOpts) -> Self {
+        let level = if opts.from_finalized_state {
+            ConsistencyLevel::High
+        } else {
+            ConsistencyLevel::Low
+        };
+
+        level
+    }
 }
 
 #[derive(Default)]
@@ -40,6 +68,7 @@ pub struct UpdateCapsuleOpts {
     pub level: ConsistencyLevel,
 }
 
+#[derive(Clone)]
 pub struct CapsulesBatch<Id, Value> {
     capsules: Vec<(Id, Value)>,
 }

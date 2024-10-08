@@ -17,11 +17,8 @@ anyhow = "1.0.86"
 # titanh api
 api = { path = "../../api"}
 
-
 # pinning lib to access checkpointing db operations
 pinning = { package = "pinning_node", path = "../../pinning-node" }
-
-
 
 # ipfs
 ipfs-api-backend-hyper = "0.6"
