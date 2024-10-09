@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use crate::{
     substrate::client::SubstrateClient,
     types::{channels::PoolWritingHandle, events::NodeEvent, events_pool::NodeEventsPool},
@@ -22,6 +24,8 @@ pub struct NodeProducer {
     start_block_recovering: BlockNumber,
     /// The block number at which the ring is up to date.
     ring_height: BlockNumber,
+    /// Wheter to track latency of events processing
+    track_latency: bool,
 }
 
 impl NodeProducer {
@@ -30,12 +34,14 @@ impl NodeProducer {
         events_pool: MutableRef<NodeEventsPool>,
         start_block_recovering: BlockNumber,
         ring_height: BlockNumber,
+        track_latency: bool,
     ) -> Self {
         Self {
             client,
             events_pool,
             start_block_recovering,
             ring_height,
+            track_latency,
         }
     }
 
@@ -49,6 +55,8 @@ impl NodeProducer {
         // Block number from which event recovery should start
         let start_block_recovering = self.start_block_recovering;
         let ring_height = self.ring_height;
+
+        let track_latency = self.track_latency;
         // Spawn a new task
         tokio::spawn(async move {
             // Subscribe to finalized blocks to get events in real-time
@@ -87,6 +95,10 @@ impl NodeProducer {
 
                 let block = BlockInfo::new(block_num, block.hash().into());
                 let events = client.events_at(block).await?;
+                if track_latency {
+                    let now = SystemTime::now();
+                    pool_write_handle.send_event(NodeEvent::LatencyTracker(now))?;
+                }
                 for event in events {
                     // Send the new events to the channel for processing.
                     pool_write_handle.send_event(event.clone())?;

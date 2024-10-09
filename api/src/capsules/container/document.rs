@@ -71,7 +71,7 @@ impl Document<'_> {
         Key: Encode,
         Value: Encode,
     {
-        self.insert_with_level(field_key, value, ConsistencyLevel::High)
+        self.insert_with_level(field_key, value, ConsistencyLevel::Finalized)
             .await
     }
 
@@ -81,7 +81,7 @@ impl Document<'_> {
         Key: Encode,
         Value: Encode,
     {
-        self.insert_with_level(field_key, value, ConsistencyLevel::Low)
+        self.insert_with_level(field_key, value, ConsistencyLevel::Eventual)
             .await
     }
 
@@ -198,13 +198,13 @@ impl Document<'_> {
 
     /// Removes a document entry (without unlinking the underlining capsule) waiting for the tx to be finalized
     pub async fn remove_wait_finalization<Key: Encode>(&self, field_key: Key) -> Result<H256> {
-        self.remove_with_level(field_key, ConsistencyLevel::High)
+        self.remove_with_level(field_key, ConsistencyLevel::Finalized)
             .await
     }
 
     /// Removes a document entry (without unlinking the underlining capsule) waiting for the transaction to be included in the transaction pool
     pub async fn remove_async<Key: Encode>(&self, field_key: Key) -> Result<H256> {
-        self.remove_with_level(field_key, ConsistencyLevel::Low)
+        self.remove_with_level(field_key, ConsistencyLevel::Eventual)
             .await
     }
 

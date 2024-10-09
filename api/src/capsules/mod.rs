@@ -70,7 +70,7 @@ impl<'a> CapsulesApi<'a> {
         Value: Encode,
     {
         let mut opts = PutCapsuleOpts::default();
-        opts.level = ConsistencyLevel::Low;
+        opts.level = ConsistencyLevel::Eventual;
 
         let tx_hash = self.put_with_options(id, data, opts).await?;
         Ok(tx_hash)
@@ -83,7 +83,7 @@ impl<'a> CapsulesApi<'a> {
         Value: Encode,
     {
         let mut opts = PutCapsuleOpts::default();
-        opts.level = ConsistencyLevel::High;
+        opts.level = ConsistencyLevel::Finalized;
 
         let tx_hash = self.put_with_options(id, data, opts).await?;
 
@@ -137,7 +137,7 @@ impl<'a> CapsulesApi<'a> {
         Value: Encode,
     {
         let mut opts = PutCapsuleOpts::default();
-        opts.level = ConsistencyLevel::Low;
+        opts.level = ConsistencyLevel::Eventual;
 
         let tx_hash = self.put_batch_with_options(batch, opts).await?;
         Ok(tx_hash)
@@ -153,7 +153,7 @@ impl<'a> CapsulesApi<'a> {
         Value: Encode,
     {
         let mut opts = PutCapsuleOpts::default();
-        opts.level = ConsistencyLevel::High;
+        opts.level = ConsistencyLevel::Finalized;
 
         let tx_hash = self.put_batch_with_options(batch, opts).await?;
         Ok(tx_hash)
@@ -206,13 +206,17 @@ impl<'a> CapsulesApi<'a> {
 
     /// Removes a capsules. Wait for block finalization
     pub async fn remove_wait_finalized<Id: Encode>(&self, id: Id) -> Result<H256> {
-        let tx_hash = self.remove_with_level(id, ConsistencyLevel::High).await?;
+        let tx_hash = self
+            .remove_with_level(id, ConsistencyLevel::Finalized)
+            .await?;
         Ok(tx_hash)
     }
 
     /// Removes a capsules. Only waits for transaction pool inclusion
     pub async fn remove_async<Id: Encode>(&self, id: Id) -> Result<H256> {
-        let tx_hash = self.remove_with_level(id, ConsistencyLevel::Low).await?;
+        let tx_hash = self
+            .remove_with_level(id, ConsistencyLevel::Eventual)
+            .await?;
         Ok(tx_hash)
     }
 
@@ -284,7 +288,7 @@ impl<'a> CapsulesApi<'a> {
         data: Value,
     ) -> Result<H256> {
         let mut opts = UpdateCapsuleOpts::default();
-        opts.level = ConsistencyLevel::Low;
+        opts.level = ConsistencyLevel::Eventual;
 
         let tx_hash = self.update_with_options(id, data, opts).await?;
         Ok(tx_hash)
@@ -297,7 +301,7 @@ impl<'a> CapsulesApi<'a> {
         data: Value,
     ) -> Result<H256> {
         let mut opts = UpdateCapsuleOpts::default();
-        opts.level = ConsistencyLevel::High;
+        opts.level = ConsistencyLevel::Finalized;
 
         let tx_hash = self.update_with_options(id, data, opts).await?;
         Ok(tx_hash)

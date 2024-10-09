@@ -22,6 +22,7 @@ impl Cli {
                 ipfs_peers_config,
                 rep_factor,
                 keytable_file,
+                latency,
             } => {
                 let peers_config = PeersConfig::from_json(&ipfs_peers_config);
 
@@ -33,6 +34,7 @@ impl Cli {
                     peers_config.ipfs_peers,
                     rep_factor,
                     keytable_file,
+                    latency,
                 )
             }
         }
@@ -64,5 +66,8 @@ enum Commands {
         /// The optional path to the file where the node keytable will be logged
         #[arg(short, long)]
         keytable_file: Option<String>,
+        /// Whether to track latency
+        #[arg(short, long)]
+        latency: bool,
     },
 }

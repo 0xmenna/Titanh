@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use crate::{
     db::checkpointing::DbCheckpoint as DbDispatcher,
     ipfs::client::IpfsClient as PinDispatcher,
@@ -25,6 +27,8 @@ pub struct NodeEventDispatcher {
     keys: KeysDispatcher,
     /// The block number until which the node has checkpointed the processed events.
     block_num: BlockNumber,
+    /// The entrance time of the current processing batch (optional)
+    batch_entrance_time: Option<SystemTime>,
 }
 
 impl NodeEventDispatcher {
@@ -43,6 +47,7 @@ impl NodeEventDispatcher {
             pinning: pin,
             keys,
             block_num,
+            batch_entrance_time: None,
         }
     }
 }
@@ -108,11 +113,19 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                     let checkpoint_event = CheckpointEvent::new(block_num, flushing_rows);
                     self.db.dispatch(checkpoint_event)?;
 
+                    if let Some(batch_entrance_time) = self.batch_entrance_time {
+                        // Log the latency of the batch (from entrance to exit)
+                        let latency = batch_entrance_time.elapsed()?;
+                        log::info!("Batch latency: {:?}", latency);
+                    }
                     // update the block number
                     self.block_num = block_num;
 
                     // Log the keytable if needed
                     self.keys.keytable().log(block_num)?;
+                }
+                NodeEvent::LatencyTracker(system_time) => {
+                    self.batch_entrance_time = Some(system_time);
                 }
             };
         }

@@ -46,6 +46,7 @@ impl PinningNodeController {
             events_pool.clone(),
             start_block_recovering,
             ring.height(),
+            config.latency,
         );
 
         // Build the IPFS client for ipfs related operations (e.g. pinning, unpinning, reading files)

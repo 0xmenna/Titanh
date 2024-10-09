@@ -1,32 +1,47 @@
 use crate::{
     types::{BytesSize, Operation},
-    utils::{self, CsvWriter, CHAIN_ENDPOINT, IPFS_ENDPOINT, SEED_PRHASE},
+    utils::{self, CsvWriter},
 };
 use anyhow::Result;
+use rand::{rngs::ThreadRng, Rng};
+use std::{
+    thread::sleep,
+    time::{self, SystemTime},
+};
 use titan_api::{
-    capsules_types::GetCapsuleOpts, common_types::ConsistencyLevel, titanh::app_registrar,
-    CapsulesBatch, TitanhApi, TitanhApiBuilder,
+    capsules_types::{GetCapsuleOpts, PutCapsuleOpts},
+    common_types::ConsistencyLevel,
+    CapsulesApi, CapsulesBatch, TitanhApi, TitanhApiBuilder,
 };
 
-pub struct MetricsController {
-    pub start: BytesSize,
-    pub end: BytesSize,
-    pub samples: u64,
+pub const CHAIN_ENDPOINT: &str = "ws://127.0.0.1:9944";
+pub const IPFS_ENDPOINT: &str = "http://127.0.0.1:5001";
+pub const SEED_PRHASE: &str =
+    "bread february program comic unveil clock output oblige jewel tell reunion hammer";
 
-    pub api: TitanhApi,
+const ITERATIONS: u8 = 1;
+
+pub struct MetricsController {
+    start: BytesSize,
+    end: BytesSize,
+    step: BytesSize,
+
+    // Titanh api
+    api: TitanhApi,
 }
 
 impl MetricsController {
-    pub async fn new(start: BytesSize, end: BytesSize, samples: u64) -> Result<Self> {
+    pub async fn new(start: BytesSize, end: BytesSize, step: BytesSize) -> Result<Self> {
         // Get the titanh-builder api
         let api = TitanhApiBuilder::rpc(CHAIN_ENDPOINT)
             .seed(SEED_PRHASE)
             .build()
             .await?;
+
         Ok(Self {
             start,
             end,
-            samples,
+            step,
             api,
         })
     }
@@ -35,50 +50,140 @@ impl MetricsController {
         let mut csv_writer = CsvWriter::new();
 
         let app_registrar = self.api.app_registrar();
+        println!("Creating app for capsules upload..");
         let (app, _) = app_registrar.create_app().await?;
 
         let capsules = self.api.capsules().config(IPFS_ENDPOINT, app)?;
-        let contents = utils::contents_from_byte_range(self.start, self.end, self.samples)?;
+        // Contents to upload
+        println!("Generating contents to upload..");
+        let contents = utils::contents_from_byte_range(self.start, self.end, self.step)?;
 
-        for (i, content) in contents.iter().enumerate() {
+        let mut rng = rand::thread_rng();
+        let mut ids = Vec::new();
+
+        for content in contents.iter() {
             let size = content.len() as u64;
             for level in ConsistencyLevel::iter() {
-                let mut id = String::new();
-                id.push_str(&i.to_string());
-                id.push_str(&level.to_string());
-                let put_time = utils::put_time(&capsules, id, content, level).await?;
+                println!(
+                    "Put content of size: {} bytes, with consistency level: {:?}",
+                    size, level
+                );
+                println!("...");
+                let put_time = self
+                    .put_time(&mut rng, &mut ids, &capsules, content, level)
+                    .await?;
                 csv_writer.write_metrics(Operation::Put(level), size, put_time)?;
             }
         }
 
-        for (i, content) in contents.iter().enumerate() {
-            let size = content.len() as u64;
-
-            for level in GetCapsuleOpts::iter() {
-                let mut id = String::new();
-                id.push_str(&i.to_string());
-                let consistency_level = ConsistencyLevel::from(level);
-                id.push_str(&consistency_level.to_string());
-                let get_time =
-                    utils::get_time::<String, Vec<u8>>(&capsules, id, level.clone()).await?;
-                csv_writer.write_metrics(Operation::Get(level), size, get_time)?;
+        for (id, size) in ids.iter() {
+            for get_opts in GetCapsuleOpts::iter() {
+                println!(
+                    "Get content of size: {} bytes, with get options: {:?}",
+                    size, get_opts
+                );
+                let get_time = self.get_time(&capsules, *id, get_opts).await?;
+                csv_writer.write_metrics(Operation::Get(get_opts.clone()), *size, get_time)?;
             }
         }
 
-        // Batch put metrics
-        let mut batch = CapsulesBatch::new();
-        let mut batch_size = 0;
-        for (i, content) in contents.iter().enumerate() {
-            let id = i + 1000;
-            batch.insert((i as u32, content));
-            batch_size += content.len() as u64;
-        }
-
+        // Send batch put operations
         for level in ConsistencyLevel::iter() {
-            let batch_put_time = utils::put_batch_time(&capsules, batch.clone(), level).await?;
+            println!("Batch put with consistency level: {:?}", level);
+            let batch_put_time = self
+                .put_batch_time(&mut rng, &capsules, &contents, level)
+                .await?;
+
+            let batch_size = contents.iter().map(|content| content.len() as u64).sum();
             csv_writer.write_metrics(Operation::BatchPut(level), batch_size, batch_put_time)?;
         }
 
         Ok(())
+    }
+
+    pub async fn put_time<'a>(
+        &self,
+        rng: &mut ThreadRng,
+        ids: &mut Vec<(u64, u64)>,
+        api: &'a CapsulesApi<'a>,
+        value: &Vec<u8>,
+        level: ConsistencyLevel,
+    ) -> Result<u128> {
+        let mut opts = PutCapsuleOpts::default();
+        opts.level = level;
+
+        let mut times = Vec::new();
+        for _ in 0..ITERATIONS {
+            let id = rng.gen::<u64>();
+
+            let start_time = SystemTime::now();
+            api.put_with_options(&id, &value, opts.clone()).await?;
+            let elapsed_time = start_time.elapsed()?;
+
+            times.push(elapsed_time.as_millis());
+
+            ids.push((id, value.len() as u64));
+
+            let duration = time::Duration::from_secs(10);
+            sleep(duration);
+        }
+
+        let avg = utils::average(&times);
+
+        Ok(avg)
+    }
+
+    pub async fn get_time<'a>(
+        &self,
+        api: &'a CapsulesApi<'a>,
+        id: u64,
+        get_opts: GetCapsuleOpts,
+    ) -> Result<u128> {
+        let mut times = Vec::new();
+        for _ in 0..ITERATIONS {
+            let start_time = SystemTime::now();
+            let _: u64 = api.get_with_options(&id, get_opts.clone()).await?;
+            let elapsed_time = start_time.elapsed()?;
+
+            times.push(elapsed_time.as_millis());
+        }
+
+        let avg = utils::average(&times);
+
+        Ok(avg)
+    }
+
+    pub async fn put_batch_time<'a>(
+        &self,
+        rng: &mut ThreadRng,
+        api: &'a CapsulesApi<'a>,
+        contents: &Vec<Vec<u8>>,
+        level: ConsistencyLevel,
+    ) -> Result<u128> {
+        let mut opts = PutCapsuleOpts::default();
+        opts.level = level;
+        let mut times = Vec::new();
+
+        for _ in 0..ITERATIONS {
+            let mut batch = CapsulesBatch::new();
+            for value in contents.iter() {
+                let id = rng.gen::<u64>();
+                batch.insert((id, value));
+            }
+
+            let start_time = SystemTime::now();
+            api.put_batch_with_options(batch.clone(), opts.clone())
+                .await?;
+            let elapsed_time = start_time.elapsed()?;
+
+            times.push(elapsed_time.as_millis());
+
+            let duration = time::Duration::from_secs(10);
+            sleep(duration);
+        }
+
+        let avg = utils::average(&times);
+
+        Ok(avg)
     }
 }

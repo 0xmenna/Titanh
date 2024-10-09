@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     fmt,
     ops::{Add, Div, Mul, Sub},
     str::FromStr,
@@ -6,11 +7,23 @@ use std::{
 
 use titan_api::{capsules_types::GetCapsuleOpts, common_types::ConsistencyLevel};
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Copy)]
+#[derive(Debug, Clone, Eq, Copy)]
 pub enum BytesSize {
     Kilobytes(u64),
     Megabytes(u64),
     Gigabytes(u64),
+}
+
+impl PartialEq for BytesSize {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_bytes() == other.to_bytes()
+    }
+}
+
+impl PartialOrd for BytesSize {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.to_bytes().partial_cmp(&other.to_bytes())
+    }
 }
 
 impl BytesSize {
@@ -61,6 +74,16 @@ impl Mul<u64> for BytesSize {
 
     fn mul(self, rhs: u64) -> BytesSize {
         let total_bytes = self.to_bytes() * rhs;
+        BytesSize::from_bytes(total_bytes)
+    }
+}
+
+// Implementing multiplication (multiplying by a scalar)
+impl Mul<BytesSize> for BytesSize {
+    type Output = BytesSize;
+
+    fn mul(self, rhs: BytesSize) -> BytesSize {
+        let total_bytes = self.to_bytes() * rhs.to_bytes();
         BytesSize::from_bytes(total_bytes)
     }
 }

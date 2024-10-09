@@ -207,14 +207,14 @@ impl TitanhApi {
     ) -> Result<H256> {
         let tx_hash = match level {
             // Just include the transaction in the transaction pool
-            ConsistencyLevel::Low => self.sign_and_submit(tx).await?,
+            ConsistencyLevel::Eventual => self.sign_and_submit(tx).await?,
             // Wait for block inclusion
-            ConsistencyLevel::Medium => {
+            ConsistencyLevel::Committed => {
                 let events = self.sign_and_submit_wait_in_block(tx).await?;
                 events.extrinsic_hash()
             }
             // Wait for block finalization
-            ConsistencyLevel::High => {
+            ConsistencyLevel::Finalized => {
                 let events = self.sign_and_submit_wait_finalized(tx).await?;
                 events.extrinsic_hash()
             }
@@ -232,12 +232,12 @@ impl TitanhApi {
         let batch_tx = titanh::tx().utility().batch_all(calls);
 
         let tx_hash = match level {
-            ConsistencyLevel::Low => self.sign_and_submit(&batch_tx).await?,
-            ConsistencyLevel::Medium => self
+            ConsistencyLevel::Eventual => self.sign_and_submit(&batch_tx).await?,
+            ConsistencyLevel::Committed => self
                 .sign_and_submit_wait_in_block(&batch_tx)
                 .await?
                 .extrinsic_hash(),
-            ConsistencyLevel::High => self
+            ConsistencyLevel::Finalized => self
                 .sign_and_submit_wait_finalized(&batch_tx)
                 .await?
                 .extrinsic_hash(),

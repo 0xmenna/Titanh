@@ -31,7 +31,7 @@ impl PutCapsuleOpts {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct GetCapsuleOpts {
     pub from_finalized_state: bool,
 }
@@ -51,12 +51,28 @@ impl GetCapsuleOpts {
     }
 }
 
+impl TryFrom<ConsistencyLevel> for GetCapsuleOpts {
+    type Error = anyhow::Error;
+
+    fn try_from(level: ConsistencyLevel) -> Result<Self, Self::Error> {
+        match level {
+            ConsistencyLevel::Committed => Ok(GetCapsuleOpts {
+                from_finalized_state: false,
+            }),
+            ConsistencyLevel::Finalized => Ok(GetCapsuleOpts {
+                from_finalized_state: true,
+            }),
+            _ => Err(anyhow::anyhow!("Invalid consistency level")),
+        }
+    }
+}
+
 impl From<GetCapsuleOpts> for ConsistencyLevel {
     fn from(opts: GetCapsuleOpts) -> Self {
         let level = if opts.from_finalized_state {
-            ConsistencyLevel::High
+            ConsistencyLevel::Finalized
         } else {
-            ConsistencyLevel::Low
+            ConsistencyLevel::Committed
         };
 
         level

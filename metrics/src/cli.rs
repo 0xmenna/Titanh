@@ -12,7 +12,7 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// Acquire metrics for put and get operations
+    /// Acquire metrics for put, get and batch_put operations
     BytesRange {
         /// The start of the range in bytes: K for kilobytes, M for megabytes, G for gigabytes
         #[arg(short, long)]
@@ -20,8 +20,8 @@ pub enum Commands {
         /// The end of the range in bytes: K for kilobytes, M for megabytes, G for gigabytes
         #[arg(short, long)]
         end: BytesSize,
-        /// The number of samples to acquire
+        /// The step of bytes to incremenent for each sample
         #[arg(short, long)]
-        samples: u64,
+        step: BytesSize,
     },
 }

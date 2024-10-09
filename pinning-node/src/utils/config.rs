@@ -41,6 +41,8 @@ pub struct Config {
     pub rep_factor: u32,
     /// The optional path to the file where the node keytable will be logged
     pub keytable_file: Option<String>,
+    /// Whether to track latency
+    pub latency: bool,
 }
 
 impl Config {
@@ -53,6 +55,7 @@ impl Config {
         ipfs_peers: Vec<IpfsPeer>,
         rep_factor: u32,
         keytable_file: Option<String>,
+        latency: bool,
     ) -> Self {
         Self {
             seed_phrase,
@@ -62,6 +65,7 @@ impl Config {
             failure_retry,
             rep_factor,
             keytable_file,
+            latency,
         }
     }
 

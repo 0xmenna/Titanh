@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::Parser;
 use cli::Cli;
+use metrics::MetricsController;
 
 // 2 operazioni
 // 1. Put
@@ -21,11 +22,11 @@ async fn main() -> Result<()> {
     let cli = Cli::parse();
 
     match cli.command {
-        cli::Commands::BytesRange {
-            start,
-            end,
-            samples,
-        } => {}
+        cli::Commands::BytesRange { start, end, step } => {
+            let metrics_controller = MetricsController::new(start, end, step).await?;
+
+            metrics_controller.compute_metrics().await?;
+        }
     }
     Ok(())
 }

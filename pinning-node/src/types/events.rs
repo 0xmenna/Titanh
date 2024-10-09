@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use super::{batch::Batch, cid::Cid, keytable::TableRow};
 use anyhow::Result;
 use api::{
@@ -20,6 +22,8 @@ pub enum NodeEvent {
     NodeRegistration(JoinNodeEvent),
     // Event of node removal
     NodeRemoval(LeaveNodeEvent),
+    // Event for tracking latency of events processing
+    LatencyTracker(SystemTime),
 }
 
 impl NodeEvent {
