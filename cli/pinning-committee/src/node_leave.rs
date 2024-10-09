@@ -10,9 +10,8 @@ use std::io::Cursor;
 pub fn read_node_checkpoint_from_db(
     rep_factor: u32,
     node_id: H256,
-    virtual_idx: u32,
 ) -> Result<Checkpoint> {
-    let db = DbCheckpoint::from_config(rep_factor, node_id, virtual_idx, None);
+    let db = DbCheckpoint::from_values(rep_factor, node_id, false);
     let checkpoint = db.get_checkpoint()?;
     Ok(checkpoint)
 }

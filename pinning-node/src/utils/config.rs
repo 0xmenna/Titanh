@@ -29,8 +29,6 @@ pub struct IpfsPeer {
 pub struct Config {
     /// The seed phrase of the validator
     pub seed_phrase: String,
-    /// The virtual node instance within all the nodes running in the same machine
-    pub idx: u32,
     /// The endpoint of the chain rpc node
     pub chain_node_endpoint: String,
     /// The list of IPFS peers
@@ -40,7 +38,7 @@ pub struct Config {
     /// The ring replication factor
     pub rep_factor: u32,
     /// The optional path to the file where the node keytable will be logged
-    pub keytable_file: Option<String>,
+    pub keytable_log: bool,
     /// Whether to track latency
     pub latency: bool,
 }
@@ -49,22 +47,20 @@ impl Config {
     // Read config from a JSON file
     pub fn new(
         seed_phrase: String,
-        idx: u32,
         chain_node_endpoint: String,
         failure_retry: u8,
         ipfs_peers: Vec<IpfsPeer>,
         rep_factor: u32,
-        keytable_file: Option<String>,
+        keytable_log: bool,
         latency: bool,
     ) -> Self {
         Self {
             seed_phrase,
-            idx,
             chain_node_endpoint,
             ipfs_peers,
             failure_retry,
             rep_factor,
-            keytable_file,
+            keytable_log,
             latency,
         }
     }

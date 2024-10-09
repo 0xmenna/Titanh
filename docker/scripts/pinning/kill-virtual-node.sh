@@ -13,7 +13,7 @@ fi
 
 # Loop through all the provided virtual instance numbers
 for instance in "$@"; do
-    PID_FILE="$HOME/virtual_$instance/pid"
+    PID_FILE="$HOME/pid_node_$NODE_IDX"
 
     # Check if the PID file exists
     if [[ -f "$PID_FILE" ]]; then

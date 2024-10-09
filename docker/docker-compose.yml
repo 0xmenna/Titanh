@@ -103,7 +103,7 @@ services:
     depends_on:
       - titanh-substrate-1
       - titanh-ipfs-1
-    command: sleep 10000000000000000000000000000000000
+    entrypoint: ["/home/titanh-ipfs/scripts/entrypoint.sh"]
 
 
   titanh-pinning-2:
@@ -128,7 +128,7 @@ services:
     depends_on:
       - titanh-substrate-2
       - titanh-ipfs-2
-    command: sleep 10000000000000000000000000000000000
+    entrypoint: ["/home/titanh-ipfs/scripts/entrypoint.sh"]
   
 
   # titanh-pinning-1:

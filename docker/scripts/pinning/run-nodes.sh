@@ -49,19 +49,19 @@ for NODE_IDX in "${NODE_ARGS[@]}"; do
     mkdir -p "$HOME/virtual_$NODE_IDX"
     IPFS_PUBKEYS_PATH="$HOME/config/virtual-$NODE_IDX/ipfs-pubkeys.json"
     echo "=============================================="
-    echo "Starting virtual node $NODE_IDX with log level $LOG_LEVEL"
+    echo "Starting pinning node $NODE_IDX with log level $LOG_LEVEL"
     echo "=============================================="
  
     # Start the pinning node
     RUST_LOG="$LOG_LEVEL" "$PINNING_NODE_PATH" start \
         --seed "$VALIDATOR_SEED" \
-        --idx "$NODE_IDX" \
         --rpc "$CHAIN_RPC" \
         --retries "$FAILURE_RETRY" \
         --ipfs-peers-config "$IPFS_PUBKEYS_PATH" \
         --rep-factor "$REPLICATION_FACTOR" \
-        --keytable-file "$HOME/virtual_$NODE_IDX/keytable.log" > "$HOME/virtual_$NODE_IDX/pinning.log" 2>&1 &
+        --keytable-log \
+        --latency  > "$HOME/pinning_$NODE_IDX.log" 2>&1 &
  
-    echo "PID $!" > "$HOME/virtual_$NODE_IDX/pid"
+    echo "PID $!" > "$HOME/pid_node_$NODE_IDX"
 
 done

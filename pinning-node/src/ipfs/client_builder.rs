@@ -1,5 +1,5 @@
 use super::client::IpfsClient;
-use crate::utils::config::Config;
+use crate::{types::cid::Cid, utils::config::Config};
 use anyhow::Result;
 use ipfs_api_backend_hyper::{IpfsClient as ApiIpfsClient, TryFromUri};
 
@@ -19,14 +19,15 @@ impl<'a> From<&'a Config> for IpfsConfig<'a> {
 
 pub struct IpfsClientBuilder<'a> {
     config: IpfsConfig<'a>,
+    cid_pins: Vec<(Cid, u32)>,
 }
 
 const MAX_REPLICAS: usize = 10;
 
 impl<'a> IpfsClientBuilder<'a> {
-    pub fn from_config(config: &'a Config) -> Self {
+    pub fn from_config(config: &'a Config, cid_pins: Vec<(Cid, u32)>) -> Self {
         let config = IpfsConfig::from(config);
-        Self { config }
+        Self { config, cid_pins }
     }
 
     pub async fn build(self) -> Result<IpfsClient> {
@@ -48,6 +49,10 @@ impl<'a> IpfsClientBuilder<'a> {
                 MAX_REPLICAS
             ));
         }
-        Ok(IpfsClient::new(replicas, self.config.failure_retry))
+        Ok(IpfsClient::new(
+            replicas,
+            self.config.failure_retry,
+            self.cid_pins,
+        ))
     }
 }

@@ -105,13 +105,20 @@ pub struct CheckpointEvent<'a> {
     pub block_num: BlockNumber,
     /// checkpoint the keytable rows updated at the given block.
     pub table_rows: Vec<&'a TableRow>,
+    /// the number of pins to flush for the given IPFS CIDs.
+    pub pin_counts: Vec<(Cid, u32)>,
 }
 
 impl<'a> CheckpointEvent<'a> {
-    pub fn new(block_num: BlockNumber, table_rows: Vec<&'a TableRow>) -> Self {
+    pub fn new(
+        block_num: BlockNumber,
+        table_rows: Vec<&'a TableRow>,
+        pin_counts: Vec<(Cid, u32)>,
+    ) -> Self {
         CheckpointEvent {
             block_num,
             table_rows,
+            pin_counts,
         }
     }
 }

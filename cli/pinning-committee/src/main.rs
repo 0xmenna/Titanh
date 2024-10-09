@@ -52,9 +52,6 @@ enum Commands {
         /// The path to the file containing hex-encoded IPFS seeds, one per line
         #[arg(short, long)]
         seeds_file: String,
-        /// The virtual node instance within all the nodes running in the same machine
-        #[arg(short, long)]
-        idx: u32,
         /// The chain rpc endpoint
         #[arg(short, long)]
         chain_rpc: String,
@@ -154,7 +151,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::LeavePinningCommittee {
             seed_phrase,
             seeds_file,
-            idx,
             chain_rpc,
             ipfs_rpc,
             table_rows,
@@ -170,7 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let node_id = committee_api.compute_pinning_node_id()?;
             let node_checkpoint =
-                node_leave::read_node_checkpoint_from_db(table_rows, node_id, idx)?;
+                node_leave::read_node_checkpoint_from_db(table_rows, node_id)?;
 
             let block_num = node_checkpoint.height();
             let keytable = node_checkpoint.keytable();

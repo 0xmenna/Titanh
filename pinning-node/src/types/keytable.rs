@@ -2,6 +2,7 @@ use super::cid::Cid;
 use anyhow::Result;
 use api::capsules_types::CapsuleKey;
 use api::common_types::BlockNumber;
+use api::pinning_committee_types::NodeId;
 use codec::{Decode, Encode};
 use std::io::Write;
 use std::{
@@ -173,7 +174,16 @@ pub struct FaultTolerantKeyTable {
 }
 
 impl FaultTolerantKeyTable {
-    pub fn new(rep_factor: u32, out_file: Option<String>) -> Self {
+    pub fn new(rep_factor: u32, node_id: NodeId, keytable_log: bool) -> Self {
+        let node_id = hex::encode(&node_id.encode()[..=8]);
+
+        let out_file = if keytable_log {
+            let home = std::env::var("HOME").unwrap();
+            let path = format!("{}/node_{}/keytable.log", home, node_id);
+            Some(path)
+        } else {
+            None
+        };
         FaultTolerantKeyTable {
             key_table: KeyTable::new(rep_factor),
             rep_factor,

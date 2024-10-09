@@ -37,8 +37,8 @@ impl NodeEventDispatcher {
         pin: PinDispatcher,
         sub_client: AtomicRef<SubstrateClient>,
         ring: PinningRing,
-        keytable: FaultTolerantKeyTable,
         block_num: BlockNumber,
+        keytable: FaultTolerantKeyTable,
     ) -> Self {
         let keys: KeysDispatcher = KeysDispatcher::new(sub_client, ring, keytable);
 
@@ -108,9 +108,11 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
                     log::info!("Checkpointing at block_num {:?}", block_num);
                     // get the rows of the keytable to be flushed
                     let flushing_rows = self.keys.mutable_keytable().flush();
-
+                    // get the cids pin counts to be flushed
+                    let flushing_pins = self.pinning.flush_pins();
                     // commit the checkpoint
-                    let checkpoint_event = CheckpointEvent::new(block_num, flushing_rows);
+                    let checkpoint_event =
+                        CheckpointEvent::new(block_num, flushing_rows, flushing_pins);
                     self.db.dispatch(checkpoint_event)?;
 
                     if let Some(batch_entrance_time) = self.batch_entrance_time {
