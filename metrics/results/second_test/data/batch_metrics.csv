@@ -1,0 +1,4 @@
+size,consistency_level,avg_elapsed_time_ms
+2369781760,Eventual,3755
+2369781760,Committed,6080
+2369781760,Finalized,11996

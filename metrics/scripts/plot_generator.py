@@ -31,7 +31,7 @@ def put_metrics_graph():
         plt.plot(
             level_data["Size [MB]"], 
             level_data["Avg Elapsed Time [ms]"], 
-            label=f"Consistency: {level}", 
+            label=f"{level}", 
             marker="o",
             color=colors[i % len(colors)]
         )
@@ -43,7 +43,7 @@ def put_metrics_graph():
         plt.legend(title="Consistency Level", fontsize='small')  
         plt.grid(True)
 
-        plt.savefig(f"./plot/put/put_metrics_{level}_graph.png", transparent=True)
+        plt.savefig(f"./plot/put/put_metrics_{level}_graph.jpg", transparent=True)
         
 def get_metrics_graph():
     output_dir = "./plot/get/"
@@ -74,7 +74,7 @@ def get_metrics_graph():
         plt.plot(
             level_data["Size [MB]"], 
             level_data["Avg Elapsed Time [ms]"], 
-            label=f"Consistency: {level}", 
+            label=f"{level}", 
             marker="o",
             color=colors[i % len(colors)]
         )
@@ -86,7 +86,7 @@ def get_metrics_graph():
         plt.legend(title="Consistency Level", fontsize='small')  
         plt.grid(True)
 
-        plt.savefig(f"./plot/get/get_metrics_{level}_graph.png", transparent=True)
+        plt.savefig(f"./plot/get/get_metrics_{level}_graph.jpg", transparent=True)
 
 
 if __name__ == "__main__":
