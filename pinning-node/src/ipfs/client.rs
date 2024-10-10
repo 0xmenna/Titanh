@@ -15,8 +15,6 @@ pub struct IpfsClient {
     failure_retry: u8,
     /// The random number generator used for selecting a random replica
     rng: Randomness,
-    /// The ipfs client idx that is currently pinning a cid
-    pinning_client: HashMap<Cid, usize>,
     /// Pinning metadata of the client
     pinning_metadata: PinMetadata,
 }
@@ -39,13 +37,12 @@ impl IpfsClient {
             clients: ipfs_clients,
             failure_retry,
             rng,
-            pinning_client: HashMap::new(),
             pinning_metadata,
         }
     }
 
     pub async fn get(&mut self, cid: Cid) -> Result<Vec<u8>> {
-        let (_, client) = self.select_client();
+        let client = self.select_client();
         let response = client
             .cat(cid.as_ref())
             .map_ok(|chunk| chunk.to_vec())
@@ -67,10 +64,10 @@ impl IpfsClient {
     }
 
     // Select a random ipfs client from the available nodes.
-    fn select_client(&mut self) -> (usize, &ApiIpfsClient) {
+    fn select_client(&mut self) -> &ApiIpfsClient {
         let idx = self.rng.gen_range(0..self.clients.len());
         let node = &self.clients[idx];
-        (idx, node)
+        node
     }
 
     async fn handle_pin_op<F, Fut, R>(op: F) -> Result<()>
@@ -108,11 +105,10 @@ impl IpfsClient {
                 }
 
                 for _ in 0..self.failure_retry {
-                    let (client_idx, client) = self.select_client();
+                    let client = self.select_client();
                     let res = Self::handle_pin_op(|| client.pin_add(cid.as_ref(), true)).await;
 
                     if res.is_ok() {
-                        self.pinning_client.insert(cid.clone(), client_idx);
                         self.pinning_metadata.insert_cid_pinning_ref(cid.clone());
                         break;
                     }
@@ -122,9 +118,7 @@ impl IpfsClient {
                 let remaining_pins = self.pinning_metadata.decrement_cid_pinning_ref(cid)?;
 
                 if remaining_pins == 0 {
-                    let client_idx = self.pinning_client.get(&cid);
-                    if let Some(client_idx) = client_idx {
-                        let client = &self.clients[*client_idx];
+                    for client in self.clients.iter() {
                         // If the client is offline and is not able to remove the pin, ignore the error
                         let res = Self::handle_pin_op(|| client.pin_rm(cid.as_ref(), true)).await;
                         if res.is_ok() {
@@ -134,10 +128,8 @@ impl IpfsClient {
                                 0,
                                 &mut None,
                             );
-                            self.pinning_client.remove(cid);
+                            break;
                         }
-                    } else {
-                        return Err(anyhow::anyhow!("No client is pinning the cid"));
                     }
                 }
             }

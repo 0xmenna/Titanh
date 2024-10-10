@@ -45,11 +45,11 @@ if [[ ! -x "$CLI_PATH" ]]; then
     error_exit "CLI program not found or not executable at $CLI_PATH"
 fi
 
-IPFS_SEEDS_PATH="$HOME/config/virtual-$NODE_IDX/ipfs_seeds"
+IPFS_SEEDS_PATH="$HOME/config/node-$NODE_IDX/ipfs_seeds"
 
 # Display header
 echo -e "${YELLOW}==============================================================="
-echo -e "${GREEN}${BOLD}Registering Pinning Node${RESET} for Virtual Node ${BOLD}#${NODE_IDX}${RESET}"
+echo -e "${GREEN}${BOLD}Registering${RESET} for Pinning Node ${BOLD}#${NODE_IDX}${RESET}"
 echo -e "${YELLOW}===============================================================${RESET}"
 
 # Show registration details

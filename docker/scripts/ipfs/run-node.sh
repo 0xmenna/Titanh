@@ -139,9 +139,6 @@ start_daemon() {
   echo "$NODE_NAME daemon started with PID $!"
 }
 
-# Read the number of keys from the JSON file
-IPFS_REPLICAS=$(jq '.keys | length' "$IPFS_CONFIG_PATH")
-
 NODE_DIR="$HOME/.ipfs-node$IPFS_IDX"
 SWARM_PORT=$((SWARM_BASE + IPFS_IDX - 1))
 API_PORT=$((API_BASE + IPFS_IDX - 1))
@@ -171,5 +168,3 @@ echo "  Log File: $HOME/node${i}_daemon.log"
 echo "  PeerId: $(get_node_config "$CONFIG_FILE" $NODE_IDX "peerId")"
 echo "-------------------------------------------"
 
-# Wait for all background processes to finish
-wait

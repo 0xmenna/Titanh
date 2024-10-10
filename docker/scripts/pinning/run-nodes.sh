@@ -46,8 +46,7 @@ for NODE_IDX in "${NODE_ARGS[@]}"; do
         error_exit "Pinning Node program not found or not executable at $PINNING_NODE_PATH"
     fi
  
-    mkdir -p "$HOME/virtual_$NODE_IDX"
-    IPFS_PUBKEYS_PATH="$HOME/config/virtual-$NODE_IDX/ipfs-pubkeys.json"
+    IPFS_PUBKEYS_PATH="$HOME/config/node-$NODE_IDX/ipfs-pubkeys.json"
     echo "=============================================="
     echo "Starting pinning node $NODE_IDX with log level $LOG_LEVEL"
     echo "=============================================="

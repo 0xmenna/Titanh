@@ -63,7 +63,7 @@ services:
     ports:
       - 5001:5001
       - 8080:8080
-    entrypoint: ["/home/titanh-ipfs/scripts/run-nodes.sh"]
+    entrypoint: ["/home/titanh-ipfs/scripts/run-nodes-tmp.sh"]
     
   # Ipfs instances associated to titanh-pinning-2
   titanh-ipfs-2:
@@ -77,7 +77,7 @@ services:
     - ./config/ipfs/ipfs-keys-2.json:/home/titanh-ipfs/config/ipfs-keys.json
     depends_on:
       - titanh-ipfs-1
-    entrypoint: ["/home/titanh-ipfs/scripts/run-nodes.sh"]
+    entrypoint: ["/home/titanh-ipfs/scripts/run-nodes-tmp.sh"]
 
   
   # Just for testing
@@ -87,7 +87,7 @@ services:
     networks:
       - titanh_network
     volumes:
-      - ./config/pinning/node-1:/home/titanh-pinning/config
+      - ./config/pinning/container-1:/home/titanh-pinning/config
       - ./scripts/pinning:/home/titanh-pinning/scripts
     environment:
       - PINNING_INSTANCES=3
@@ -100,7 +100,7 @@ services:
     depends_on:
       - titanh-substrate-1
       - titanh-ipfs-1
-    entrypoint: ["/home/titanh-ipfs/scripts/entrypoint.sh"]
+    command: ["/home/titanh-pinning/scripts/entrypoint.sh"]
 
 
   titanh-pinning-2:
@@ -109,7 +109,7 @@ services:
     networks:
       - titanh_network
     volumes:
-      - ./config/pinning/node-2:/home/titanh-pinning/config
+      - ./config/pinning/container-2:/home/titanh-pinning/config
       - ./scripts/pinning:/home/titanh-pinning/scripts
     environment:
       - PINNING_INSTANCES=3
@@ -122,5 +122,5 @@ services:
     depends_on:
       - titanh-substrate-2
       - titanh-ipfs-2
-    entrypoint: ["/home/titanh-ipfs/scripts/entrypoint.sh"]
+    command: ["/home/titanh-pinning/scripts/entrypoint.sh"]
   

@@ -37,7 +37,7 @@ if [[ ! -x "$CLI_PATH" ]]; then
     error_exit "CLI program not found or not executable at $CLI_PATH"
 fi
 
-IPFS_SEEDS_PATH="$HOME/config/virtual-$NODE_IDX/ipfs_seeds"
+IPFS_SEEDS_PATH="$HOME/config/node-$NODE_IDX/ipfs_seeds"
 
 echo "===================================================================="
 echo "Uploading node keytable to IPFS and sending the leave tx on chain..."
@@ -46,7 +46,6 @@ echo "===================================================================="
 "$CLI_PATH" leave-pinning-committee \
     --seed-phrase "$VALIDATOR_SEED" \
     --seeds-file "$IPFS_SEEDS_PATH" \
-    --idx "$NODE_IDX" \
     --chain-rpc "$CHAIN_RPC" \
     --ipfs-rpc "$IPFS_RPC" \
     --table-rows "$REPLICATION_FACTOR"
