@@ -3,6 +3,12 @@
 # Exit immediately if a command exits with a non-zero status.
 set -e
 
+# Function to display an error message and exit
+error_exit() {
+    echo "$1" 1>&2
+    exit 1
+}
+
 # Check if IPFS_IDX is provided as an argument
 if [[ -z "$1" ]]; then
     error_exit "IPFS_IDX argument is not provided."
@@ -71,9 +77,8 @@ initialize_node() {
   IPFS_PATH="$NODE_DIR" ipfs config Addresses.Gateway "/ip4/0.0.0.0/tcp/$GATEWAY_PORT"
 
   # Add bootnodes (optional, depending on your setup)
-  add_bootnodes_from_json "$HOME/config/bootnodes.json" "$NODE_DIR"
+  add_bootnodes_from_json "$BOOTSTRAP_CONFIG_PATH" "$NODE_DIR"
 }
-
 
 # Function to add bootnodes from a JSON file
 add_bootnodes_from_json() {
@@ -110,7 +115,6 @@ add_bootnodes_from_json() {
 
     # Construct the multiaddress
     local MULTIADDR="/ip4/$RESOLVED_IP/udp/$PORT/quic-v1/p2p/$PEERID"
-    # local MULTIADDR="/ip4/$RESOLVED_IP/tcp/$PORT/p2p/$PEERID"
     echo "Resolved Bootnode: $MULTIADDR"
 
     # Add to the array of multiaddresses
@@ -139,6 +143,8 @@ start_daemon() {
   echo "$NODE_NAME daemon started with PID $!"
 }
 
+# Main process
+
 NODE_DIR="$HOME/.ipfs-node$IPFS_IDX"
 SWARM_PORT=$((SWARM_BASE + IPFS_IDX - 1))
 API_PORT=$((API_BASE + IPFS_IDX - 1))
@@ -158,13 +164,7 @@ start_daemon "$NODE_DIR" "$NODE_NAME"
 
 echo "IPFS Node $IPFS_IDX started successfully."
 echo "-------------------------------------------"
-API_PORT=$((API_BASE + i - 1))
-GATEWAY_PORT=$((GATEWAY_BASE + i - 1))
-NODE_IDX=$((i - 1))
-echo "Node $i:"
-echo "  API Endpoint: http://127.0.0.1:$API_PORT"
-echo "  Gateway Endpoint: http://127.0.0.1:$GATEWAY_PORT"
-echo "  Log File: $HOME/node${i}_daemon.log"
-echo "  PeerId: $(get_node_config "$CONFIG_FILE" $NODE_IDX "peerId")"
-echo "-------------------------------------------"
-
+echo "API Endpoint: http://127.0.0.1:$API_PORT"
+echo "Gateway Endpoint: http://127.0.0.1:$GATEWAY_PORT"
+echo "Log File: $HOME/node${IPFS_IDX}_daemon.log"
+echo "PeerId: $PEERID"

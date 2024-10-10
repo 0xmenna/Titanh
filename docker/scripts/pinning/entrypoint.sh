@@ -13,4 +13,6 @@ sleep 10
 # Run the specified nodes with info logging level
 $HOME/scripts/run-nodes.sh 1 2 3 info
 
-wait
+tail -f /dev/null
+
+

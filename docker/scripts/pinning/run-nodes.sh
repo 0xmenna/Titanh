@@ -64,3 +64,5 @@ for NODE_IDX in "${NODE_ARGS[@]}"; do
     echo "PID $!" > "$HOME/pid_node_$NODE_IDX"
 
 done
+
+wait
