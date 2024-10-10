@@ -14,5 +14,3 @@ sleep 10
 $HOME/scripts/run-nodes.sh 1 2 3 info
 
 tail -f /dev/null
-
-
