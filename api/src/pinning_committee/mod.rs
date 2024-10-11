@@ -88,10 +88,15 @@ impl PinningCommitteeApi<'_> {
 
     pub async fn register_ipfs_peers(&self) -> Result<H256> {
         let mut calls = RuntimeCalls::new();
-
+        let validator_pair = self
+            .titanh
+            .signer
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("Signer is not set"))?;
         if let Some(ipfs_peers) = &self.ipfs_peers {
             for ipfs_pair in ipfs_peers {
-                let registration_call = calls::build_registration_message_call(ipfs_pair);
+                let registration_call =
+                    calls::build_registration_message_call(ipfs_pair, validator_pair.account_id());
                 calls.push(registration_call);
             }
 

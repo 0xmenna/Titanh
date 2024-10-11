@@ -284,10 +284,6 @@ impl pallet_sudo::Config for Runtime {
     type WeightInfo = pallet_sudo::weights::SubstrateWeight<Runtime>;
 }
 
-parameter_types! {
-    pub RegistrationMessage: &'static [u8] = b"Pinning node registration";
-}
-
 impl pallet_pinning_committee::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type MaxPinningNodes = ConstU32<512>;
@@ -295,7 +291,6 @@ impl pallet_pinning_committee::Config for Runtime {
     type ValidatorRegistrar = Session;
     type ValidatorIdOf = ValidatorIdOf;
     type IPFSNodeId = primitives::ed25519::IpfsId;
-    type RegistrationMessage = RegistrationMessage;
 }
 
 impl pallet_app_registrar::Config for Runtime {

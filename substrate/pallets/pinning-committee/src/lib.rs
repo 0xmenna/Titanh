@@ -61,9 +61,6 @@ pub mod pallet {
             + Ord
             + MaybeSerializeDeserialize
             + MaxEncodedLen;
-        /// The registration message a validator signs with the registring IPFS node pubkey
-        #[pallet::constant]
-        type RegistrationMessage: Get<&'static [u8]>;
     }
 
     /// The number of pinning nodes that will pin the content underneath an IPFS cid
@@ -326,7 +323,7 @@ pub mod pallet {
             // We verify the signature at last because is the most computationally intensive part
             if !registration
                 .key
-                .verify(&T::RegistrationMessage::get(), &registration.signature)
+                .verify(&validator.encode(), &registration.signature)
             {
                 return Err(Error::<T>::InvalidRegistrationSignature.into());
             }
