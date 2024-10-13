@@ -13,7 +13,7 @@ pub struct IpfsClient {
     clients: Vec<ApiIpfsClient>,
     /// The number of retries for pinning operations
     failure_retry: u8,
-    /// The random number generator used for selecting a random replica
+    /// The random number generator used for selecting a random client
     rng: Randomness,
     /// Pinning metadata of the client
     pinning_metadata: PinMetadata,
