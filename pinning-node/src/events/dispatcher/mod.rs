@@ -65,10 +65,7 @@ impl AsyncMutableDispatcher<Batch<NodeEvent>, ()> for NodeEventDispatcher {
 
                     if let Some(pin_event) = maybe_pin {
                         // Pinning dispatch
-                        self.pinning
-                            .async_dispatch(pin_event.clone())
-                            .await
-                            .unwrap();
+                        self.pinning.async_dispatch(pin_event.clone()).await?;
                         log::info!("Pinning event dispatched successfully");
                     }
                 }

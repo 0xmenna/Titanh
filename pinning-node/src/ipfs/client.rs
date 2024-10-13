@@ -128,6 +128,8 @@ impl IpfsClient {
                                 0,
                                 &mut None,
                             );
+                            self.pinning_metadata.rm_pin_count(cid)?;
+
                             break;
                         }
                     }
@@ -168,6 +170,14 @@ impl PinMetadata {
         self.pin_counts.contains_key(cid)
     }
 
+    fn rm_pin_count(&mut self, cid: &Cid) -> Result<()> {
+        self.pin_counts.remove(cid).ok_or(anyhow::anyhow!(
+            "Cannot remove pin for cid: {:?} because it does not exist",
+            cid
+        ))?;
+        Ok(())
+    }
+
     fn decrement_cid_pinning_ref(&mut self, cid: &Cid) -> Result<u32> {
         let (count, idx_option) = self.pin_counts.get_mut(cid).ok_or(anyhow::anyhow!(
             "Cannot remove pin for cid: {:?} because it does not exist",
@@ -205,7 +215,12 @@ impl PinMetadata {
 
     fn flush_pins(&mut self) -> Vec<(Cid, u32)> {
         let pins_to_flush = std::mem::take(&mut self.pins_to_flush);
-
+        for (cid, _) in pins_to_flush.iter() {
+            let pin_count = self.pin_counts.get_mut(cid);
+            if let Some(pin_count) = pin_count {
+                pin_count.1 = None;
+            }
+        }
         pins_to_flush
     }
 }
