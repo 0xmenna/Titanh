@@ -509,6 +509,10 @@ impl<'a> CapsulesApi<'a> {
 
         Ok(value)
     }
+
+    pub fn rm_capsule_call(&self, capsule_id: H256) -> RuntimeCall {
+        RuntimeCall::Capsules(Call::start_destroy_capsule { capsule_id })
+    }
 }
 
 pub mod container;

@@ -84,7 +84,7 @@ impl<'a> ContainerApi<'a> {
     pub fn attach_capsule_call<Key: Encode, CapsuleId: Encode>(
         &self,
         container_id: H256,
-        key: Key,
+        key: &Key,
         capsule_id: CapsuleId,
     ) -> RuntimeCall {
         let app_id = self.config.app;

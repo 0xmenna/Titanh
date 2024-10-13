@@ -116,7 +116,9 @@ impl Document<'_> {
             .await?;
         calls.push(runtime_call);
 
-        let container_attach_call = self.api.attach_capsule_call(self.id, field_key, capsule_id);
+        let container_attach_call = self
+            .api
+            .attach_capsule_call(self.id, &field_key, capsule_id);
         calls.push(container_attach_call);
 
         let tx_hash = self
@@ -214,20 +216,21 @@ impl Document<'_> {
         field_key: Key,
         level: ConsistencyLevel,
     ) -> Result<H256> {
-        let rm_container_tx = titanh::tx()
-            .capsules()
-            .container_remove(self.id, field_key.encode());
+        let mut calls = Calls::new();
 
-        let capsule_id = self.compute_capsule_id(field_key);
-        self.api
-            .capsules
-            .remove_with_level(capsule_id, level)
-            .await?;
+        // detach capsule call to remove the capsule from the container, based on the document field key
+        let container_rm_call = self.api.remove_capsule_call(self.id, &field_key);
+        calls.push(container_rm_call);
+
+        let capsule_id = self.compute_capsule_id(&field_key);
+        // remove capsule call to remove the capsule from the storage
+        let rm_capsule_call = self.api.capsules.rm_capsule_call(capsule_id);
+        calls.push(rm_capsule_call);
 
         self.api
             .capsules
             .titanh
-            .sign_and_submit_tx_with_level(&rm_container_tx, level)
+            .sign_and_submit_batch(calls, level)
             .await
     }
 
