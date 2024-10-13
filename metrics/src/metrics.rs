@@ -19,7 +19,7 @@ pub const IPFS_ENDPOINT: &str = "http://127.0.0.1:5001";
 pub const SEED_PRHASE: &str =
     "bread february program comic unveil clock output oblige jewel tell reunion hammer";
 
-const ITERATIONS: u8 = 1;
+const ITERATIONS: u8 = 10;
 
 pub struct MetricsController {
     start: BytesSize,
