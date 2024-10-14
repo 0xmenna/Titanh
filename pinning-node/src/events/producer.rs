@@ -11,7 +11,7 @@ use crate::{
 use anyhow::Result;
 use api::{
     common_types::{BlockInfo, BlockNumber},
-    titanh::{self},
+    titanh::{self, runtime_types::pallet_capsules::capsule::types::Status},
 };
 use tokio::task::JoinHandle;
 
@@ -143,19 +143,21 @@ pub async fn produce_recover_events(
 
         while let Some(Ok(kv)) = capsules_iter.next().await {
             let capsule = kv.value;
-            let app_id = capsule.app_data.app_id;
-            let metadata = capsule.app_data.data.0 .0;
+            if let Status::Live = capsule.status {
+                let app_id = capsule.app_data.app_id;
+                let metadata = capsule.app_data.data.0 .0;
 
-            let capsule_id = utils::capsules::compute_capsule_id(metadata, app_id);
-            let cid = capsule.cid.0 .0;
+                let capsule_id = utils::capsules::compute_capsule_id(metadata, app_id);
+                let cid = capsule.cid.0 .0;
 
-            let event = NodeEvent::from_capsule(capsule_id, cid)?;
-            // Produce a pinning event
-            writing_handle.send_event(event.clone())?;
-            log::info!(
-                "Produced a recover pinning event for node startup: {:?}",
-                event
-            );
+                let event = NodeEvent::from_capsule(capsule_id, cid)?;
+                // Produce a pinning event
+                writing_handle.send_event(event.clone())?;
+                log::info!(
+                    "Produced a recover pinning event for node startup: {:?}",
+                    event
+                );
+            }
         }
 
         // Recover events from the remaining blocks
