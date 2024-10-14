@@ -24,6 +24,10 @@ mod pinning_committee;
 
 // Export
 pub use builder::TitanhApiBuilder;
+pub use capsules::container::{
+    document::{Document, DocumentApi},
+    ContainerApi,
+};
 pub use capsules::types as capsules_types;
 pub use capsules::types::CapsulesBatch;
 pub use capsules::CapsulesApi;

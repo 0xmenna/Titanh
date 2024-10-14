@@ -11,7 +11,7 @@ use crate::{
         },
         utility::calls::types::batch_all::Calls,
     },
-    TitanhApi,
+    ContainerApi, TitanhApi,
 };
 use anyhow::{Ok, Result};
 use codec::{Decode, Encode};
@@ -512,6 +512,11 @@ impl<'a> CapsulesApi<'a> {
 
     pub fn rm_capsule_call(&self, capsule_id: H256) -> RuntimeCall {
         RuntimeCall::Capsules(Call::start_destroy_capsule { capsule_id })
+    }
+
+    pub fn container(&self) -> Result<ContainerApi> {
+        let container_api = ContainerApi::try_from(self)?;
+        Ok(container_api)
     }
 }
 

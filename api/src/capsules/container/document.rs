@@ -46,7 +46,7 @@ impl DocumentApi<'_> {
 
 type DocumentId = H256;
 pub struct Document<'a> {
-    id: DocumentId,
+    pub id: DocumentId,
     api: &'a ContainerApi<'a>,
 }
 

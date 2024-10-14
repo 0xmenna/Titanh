@@ -9,6 +9,7 @@ edition = "2021"
 # crates.io
 tokio = { version = "1.37.0", features = ["full"] }
 aes-gcm = "0.10"
+clap = { version = "4.5.18", features = ["derive"] }
 aes = "0.8"
 rand = "0.8"
 hex = "0.4.3"
@@ -21,6 +22,7 @@ anyhow = "1.0.86"
 codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [
 	"derive",
 ] }
+sp-core = { version = "31.0.0", features = ["full_crypto", "serde"] }
 
 # titanh api
 titan-api = {package = "api", path = "../api" }

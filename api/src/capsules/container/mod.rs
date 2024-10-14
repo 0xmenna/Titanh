@@ -6,6 +6,7 @@ use crate::{
         capsules::calls::types::change_container_status::ContainerStatus,
         runtime_types::{pallet_capsules::pallet::Call, titanh_runtime::RuntimeCall},
     },
+    DocumentApi,
 };
 use anyhow::Result;
 use codec::Encode;
@@ -136,6 +137,10 @@ impl<'a> ContainerApi<'a> {
         ids.extend_from_slice(&id.encode());
 
         Blake2Hasher::hash(&ids[..])
+    }
+
+    pub fn document(&'a self) -> DocumentApi<'a> {
+        DocumentApi::from(self)
     }
 }
 
