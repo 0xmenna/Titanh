@@ -1,0 +1,13 @@
+[package]
+name = "ipfs-key"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+clap = { version = "4.5.18", features = ["derive"] }
+sp-core = { version = "34.0.0" }
+pem = "3.0.4"
+hex = "0.4.3"
+libp2p = { version = "0.51", features = ["identify", "tcp", "dns"] }
+base64 = "0.21"

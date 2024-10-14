@@ -1,0 +1,33 @@
+[package]
+name = "api"
+version = "0.1.0"
+edition = "2021"
+
+# Framework API
+
+[dependencies]
+
+# crates.io
+tokio = { version = "1.37.0", features = ["full"] }
+pem = "3.0.4"
+hex = "0.4.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+anyhow = "1.0.86"
+futures = "0.3"
+
+
+# substrate
+codec = { package = "parity-scale-codec", version = "3.6.9", default-features = false, features = [
+	"derive",
+] }
+scale-info = { version = "2.11.3", default-features = false, features = [
+	"derive",
+] }
+sp-core = { version = "31.0.0", features = ["full_crypto", "serde"] }
+sp-crypto-hashing = "0.1.0"
+sp-application-crypto = "38.0.0"
+subxt = { version = "0.37.0", features = ["substrate-compat"] }
+
+# ipfs
+ipfs-api-backend-hyper = "0.6"

@@ -1,0 +1,4 @@
+Size ,Consistency level,Avg elapsed time [ms]
+472907776,Eventual,2503
+472907776,Committed,3797
+472907776,Finalized,12809
