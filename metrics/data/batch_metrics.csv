@@ -1,4 +1,4 @@
-size,consistency_level,avg_elapsed_time_ms
-472907776,Eventual,607
-472907776,Committed,659
-472907776,Finalized,9391
+Size ,Consistency level,Avg elapsed time [ms]
+472907776,Eventual,2503
+472907776,Committed,3797
+472907776,Finalized,12809
