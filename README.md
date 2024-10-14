@@ -10,6 +10,7 @@ Titanh is a decentralized data store framework built using Substrate and IPFS, d
   - **`titanh-node/`**: Basic node template offered by Substrate.
   - **`runtime/`**: Blockchain runtime, it integrates the datastore custom pallets.
 - **`pinning-node/`**: Contains the pinning node responsible for ensuring content availability on IPFS.
+- **`garbage-collector/`**: The garbage collector node.
 
 - **`examples/`**: Contains an example use case.
 
